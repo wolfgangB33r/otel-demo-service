@@ -15,5 +15,4 @@ A demo service instrumented with OpenTelemetry
 * set dt.otel.api.key=<YOUR_KEY>
 * set demo.latency.ms=1000
 * set service.name=demoservice
-  
 * python3 oteltest.py & disown
