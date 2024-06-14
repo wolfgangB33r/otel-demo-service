@@ -28,6 +28,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: wolfgangb33r/python-otel-demo-service
+          tags: wolfgangb33r/otel-demo-service
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
