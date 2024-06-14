@@ -4,6 +4,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.propagate import extract
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 import http.server
 import json
 import time
@@ -41,7 +42,7 @@ def do_GET(self):
 class Handler(http.server.SimpleHTTPRequestHandler) :
     def do_GET(self) :
         with tracer.start_as_current_span("doSomeWork", context=extract(self.headers), kind=trace.SpanKind.SERVER):
-            with tracer.start_as_current_span("work"):
+            with tracer.start_as_current_span("work", context=extract(self.headers)):
                 # Read the demo latency
                 DEMO_LATENCY_MS = os.environ.get('demo.latency.ms')
                 latency = 0.1
