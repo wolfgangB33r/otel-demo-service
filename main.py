@@ -41,8 +41,8 @@ def do_GET(self):
 
 class Handler(http.server.SimpleHTTPRequestHandler) :
     def do_GET(self) :
-        with tracer.start_as_current_span("doSomeWork", context=extract(self.headers)):
-            with tracer.start_as_current_span("work", context=extract(self.headers)):
+        with tracer.start_as_current_span("doSomeWork", context=extract(self.headers), kind=trace.SpanKind.SERVER):
+            with tracer.start_as_current_span("work", context=extract(self.headers), kind=trace.SpanKind.SERVER):
                 # Read the demo latency
                 DEMO_LATENCY_MS = os.environ.get('demo.latency.ms')
                 latency = 0.1
