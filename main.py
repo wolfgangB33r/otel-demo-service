@@ -11,13 +11,13 @@ import time
 import os
 
 # Get some environment variables
-DT_OTEL_ENDPOINT = os.environ.get('dt.otel.endpoint')
-DT_OTEL_API_KEY = os.environ.get('dt.otel.api.key')
-SERVICE_NAME = os.environ.get('service.name')
+DT_OTEL_ENDPOINT = os.environ.get('DT_OTEL_ENDPOINT')
+DT_OTEL_API_KEY = os.environ.get('DT_OTEL_API_KEY')
+SERVICE_NAME = os.environ.get('SERVICE_NAME')
 
 #print(DT_OTEL_ENDPOINT)
 #print(DT_OTEL_API_KEY)
-print(SERVICE_NAME)
+#print(SERVICE_NAME)
 
 resource = Resource(attributes={
     "service.name": SERVICE_NAME
@@ -34,15 +34,19 @@ otlp_exporter = OTLPSpanExporter(
 span_processor = BatchSpanProcessor(otlp_exporter)
 trace.get_tracer_provider().add_span_processor(span_processor)
 
-def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b'Hello, world!')
 
 class Handler(http.server.SimpleHTTPRequestHandler) :
+
+    def extract_headers(self):
+        headers_string = ""
+        for header, value in self.headers.items():
+            headers_string += f"{header}: {value}\n"
+        return headers_string
+
     def do_GET(self) :
-        with tracer.start_as_current_span("doSomeWork", context=extract(self.headers), kind=trace.SpanKind.SERVER):
-            with tracer.start_as_current_span("work", context=extract(self.headers), kind=trace.SpanKind.SERVER):
+        #with tracer.start_as_current_span("doSomeWork", context=extract(self.headers), kind=trace.SpanKind.SERVER):
+        with tracer.start_as_current_span("doSomeWork", kind=trace.SpanKind.SERVER):
+            with tracer.start_as_current_span("work"):
                 # Read the demo latency
                 DEMO_LATENCY_MS = os.environ.get('demo.latency.ms')
                 latency = 0.1
@@ -51,7 +55,9 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
                 time.sleep(latency)
                 self.send_response(200)
                 self.end_headers()
-                self.wfile.write(b'Hello, world!')
+                headers_string = self.extract_headers()
+                
+                self.wfile.write(headers_string.encode('utf-8', errors='ignore'))
 
 s = http.server.HTTPServer( ('', 8080), Handler )
 s.serve_forever()
