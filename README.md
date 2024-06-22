@@ -16,3 +16,6 @@ A demo service instrumented with OpenTelemetry
 * set demo.latency.ms=1000
 * set service.name=demoservice
 * python3 oteltest.py & disown
+
+
+https://lynn.zone/blog/opting-out-of-tracing-on-gcp/

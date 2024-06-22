@@ -48,7 +48,7 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
         with tracer.start_as_current_span("doSomeWork", kind=trace.SpanKind.SERVER):
             with tracer.start_as_current_span("work"):
                 # Read the demo latency
-                DEMO_LATENCY_MS = os.environ.get('demo.latency.ms')
+                DEMO_LATENCY_MS = os.environ.get('DEMO_LATENCY_MS')
                 latency = 0.1
                 if DEMO_LATENCY_MS:
                     latency = int(DEMO_LATENCY_MS) / 1000.0
