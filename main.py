@@ -19,7 +19,7 @@ SERVICE_NAME = os.environ.get('SERVICE_NAME')
 
 #print(DT_OTEL_ENDPOINT)
 #print(DT_OTEL_API_KEY)
-#print(SERVICE_NAME)
+print(SERVICE_NAME)
 
 resource = Resource(attributes={
     "service.name": SERVICE_NAME
