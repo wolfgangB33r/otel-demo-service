@@ -8,9 +8,9 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 import http.server
-import json
 import time
 import os
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,6 +19,13 @@ load_dotenv()
 DT_OTEL_ENDPOINT = os.environ.get('DT_OTEL_ENDPOINT')
 DT_OTEL_API_KEY = os.environ.get('DT_OTEL_API_KEY')
 SERVICE_NAME = os.environ.get('SERVICE_NAME')
+DEMO_LATENCY_MS = os.environ.get('DEMO_LATENCY_MS')
+DEMO_CALLS = os.environ.get('DEMO_CALLS')
+CALLS_TO = []
+if DEMO_CALLS:
+    CALLS_TO = DEMO_CALLS.split(' ')
+
+print(CALLS_TO)
 
 print(SERVICE_NAME)
 
@@ -51,17 +58,25 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
     def do_GET(self) :
         with trace.get_tracer(__name__).start_as_current_span("doSomeWork", context=extract(self.headers), kind=trace.SpanKind.SERVER):
             with trace.get_tracer(__name__).start_as_current_span("work"):
-                # Read the demo latency
-                DEMO_LATENCY_MS = os.environ.get('DEMO_LATENCY_MS')
-                latency = 0.1
-                if DEMO_LATENCY_MS:
-                    latency = int(DEMO_LATENCY_MS) / 1000.0
-                time.sleep(latency)
+                # Write response as text of headers
                 self.send_response(200)
                 self.end_headers()
                 headers_string = self.extract_headers()
-                
                 self.wfile.write(headers_string.encode('utf-8', errors='ignore'))
+
+                # Read a demo latency
+                if DEMO_LATENCY_MS:
+                    latency = int(DEMO_LATENCY_MS) / 1000.0
+                    time.sleep(latency)
+                    self.wfile.write(f"\nDemo service latency: {latency}".encode('utf-8', errors='ignore'))
+                
+                for url in CALLS_TO:
+                    response = requests.get(url)
+                    call_result = f"\nCalled: {url} Response status code: {response.status_code}"
+                    self.wfile.write(call_result.encode('utf-8', errors='ignore'))
+
+
+
 
 s = http.server.HTTPServer( ('', 8080), Handler )
 s.serve_forever()

@@ -13,11 +13,9 @@ A demo service instrumented with OpenTelemetry
 
 ## Start in a terminal
 
-* set dt.otel.endpoint=https://<YOUR_TENANT>.live.dynatrace.com/api/v2/otlp/v1/traces
-* set dt.otel.api.key=<YOUR_KEY>
-* set demo.latency.ms=1000
-* set service.name=demoservice
+* set DT_OTEL_ENDPOINT=https://<YOUR_TENANT>.live.dynatrace.com/api/v2/otlp/v1/traces
+* set DT_OTEL_API_KEY=<YOUR_KEY>
+* set DEMO_LATENCY_MS=300
+* set SERVICE_NAME=demoservice
+* set DEMO_CALLS=localhost:8090 localhost:8091
 * python3 oteltest.py & disown
-
-
-https://lynn.zone/blog/opting-out-of-tracing-on-gcp/
