@@ -8,6 +8,8 @@ A demo service instrumented with OpenTelemetry
 * pip install opentelemetry-sdk
 * pip install opentelemetry-exporter-otlp-proto-http
 * pip install opentelemetry-instrumentation-wsgi
+* pip install opentelemetry-instrumentation-requests
+
 
 ## Start in a terminal
 

@@ -11,14 +11,15 @@ import http.server
 import json
 import time
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Get some environment variables
 DT_OTEL_ENDPOINT = os.environ.get('DT_OTEL_ENDPOINT')
 DT_OTEL_API_KEY = os.environ.get('DT_OTEL_API_KEY')
 SERVICE_NAME = os.environ.get('SERVICE_NAME')
 
-#print(DT_OTEL_ENDPOINT)
-#print(DT_OTEL_API_KEY)
 print(SERVICE_NAME)
 
 resource = Resource(attributes={
