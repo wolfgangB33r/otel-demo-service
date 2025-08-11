@@ -34,6 +34,7 @@ resource = Resource(attributes={
 })
 
 trace.set_tracer_provider(TracerProvider(resource=resource))
+tracer = trace.get_tracer(__name__)
 
 otlp_exporter = OTLPSpanExporter(
     endpoint=DT_OTEL_ENDPOINT,
@@ -56,24 +57,23 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
         return headers_string
 
     def do_GET(self) :
-        with trace.get_tracer(__name__).start_as_current_span("doSomeWork", context=extract(self.headers), kind=trace.SpanKind.SERVER):
-            with trace.get_tracer(__name__).start_as_current_span("work"):
-                # Write response as text of headers
-                self.send_response(200)
-                self.end_headers()
-                headers_string = self.extract_headers()
-                self.wfile.write(headers_string.encode('utf-8', errors='ignore'))
+        with tracer.start_as_current_span("doSomeWork"):
+            # Write response as text of headers
+            self.send_response(200)
+            self.end_headers()
+            headers_string = self.extract_headers()
+            self.wfile.write(headers_string.encode('utf-8', errors='ignore'))
 
-                # Read a demo latency
-                if DEMO_LATENCY_MS:
-                    latency = int(DEMO_LATENCY_MS) / 1000.0
-                    time.sleep(latency)
-                    self.wfile.write(f"\nDemo service latency: {latency}".encode('utf-8', errors='ignore'))
+            # Read a demo latency
+            if DEMO_LATENCY_MS:
+                latency = int(DEMO_LATENCY_MS) / 1000.0
+                time.sleep(latency)
+                self.wfile.write(f"\nDemo service latency: {latency}".encode('utf-8', errors='ignore'))
                 
-                for url in CALLS_TO:
-                    response = requests.get(url)
-                    call_result = f"\nCalled: {url} Response status code: {response.status_code}"
-                    self.wfile.write(call_result.encode('utf-8', errors='ignore'))
+            for url in CALLS_TO:
+                response = requests.get(url)
+                call_result = f"\nCalled: {url} Response status code: {response.status_code}"
+                self.wfile.write(call_result.encode('utf-8', errors='ignore'))
 
 
 
