@@ -62,7 +62,7 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
         context = TraceContextTextMapPropagator().extract(self.headers)
         
         # Start a new span for the incoming request
-        with tracer.start_as_current_span("workmethod", context=context, kind=SpanKind.SERVER) as span:
+        with tracer.start_as_current_span("workmethod", context=context) as span:
             # Write response as text of headers
             self.send_response(200)
             self.end_headers()
