@@ -6,6 +6,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.trace import SpanKind
 
 import http.server
 import time
@@ -57,7 +58,11 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
         return headers_string
 
     def do_GET(self) :
-        with tracer.start_as_current_span("doSomeWork"):
+        # Extract the context from incoming headers
+        context = TraceContextTextMapPropagator().extract(self.headers)
+        
+        # Start a new span for the incoming request
+        with tracer.start_as_current_span("workmethod", context=context, kind=SpanKind.SERVER) as span:
             # Write response as text of headers
             self.send_response(200)
             self.end_headers()

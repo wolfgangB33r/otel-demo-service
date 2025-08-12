@@ -19,3 +19,4 @@ A demo service instrumented with OpenTelemetry
 * set SERVICE_NAME=demoservice
 * set DEMO_CALLS=localhost:8090 localhost:8091
 * python3 oteltest.py & disown
+
