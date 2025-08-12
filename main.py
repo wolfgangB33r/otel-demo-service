@@ -62,7 +62,10 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
         context = TraceContextTextMapPropagator().extract(self.headers)
         
         # Start a new span for the incoming request
-        with tracer.start_as_current_span("workmethod", context=context, kind=SpanKind.SERVER) as span:
+        with tracer.start_as_current_span("workmethod", context=context, kind=SpanKind.SERVER) as server_span:
+            server_span.set_attribute("http.method", "GET")
+            server_span.set_attribute("http.url", self.path)
+            server_span.set_attribute("http.client_ip", self.client_address[0])
             # Write response as text of headers
             self.send_response(200)
             self.end_headers()
@@ -76,9 +79,12 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
                 self.wfile.write(f"\nDemo service latency: {latency}".encode('utf-8', errors='ignore'))
                 
             for url in CALLS_TO:
-                response = requests.get(url)
-                call_result = f"\nCalled: {url} Response status code: {response.status_code}"
-                self.wfile.write(call_result.encode('utf-8', errors='ignore'))
+                with tracer.start_as_current_span("workmethod", kind=SpanKind.CLIENT) as client_span:
+                    client_span.set_attribute("http.method", "GET")
+                    client_span.set_attribute("http.url", url)
+                    response = requests.get(url)
+                    call_result = f"\nCalled: {url} Response status code: {response.status_code}"
+                    self.wfile.write(call_result.encode('utf-8', errors='ignore'))
 
 
 
