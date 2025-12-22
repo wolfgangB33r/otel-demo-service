@@ -20,8 +20,19 @@ load_dotenv()
 DT_OTEL_ENDPOINT = os.environ.get('DT_OTEL_ENDPOINT')
 DT_OTEL_API_KEY = os.environ.get('DT_OTEL_API_KEY')
 SERVICE_NAME = os.environ.get('SERVICE_NAME')
+if SERVICE_NAME is None:
+    SERVICE_NAME = "demo-service"
 DEMO_LATENCY_MS = os.environ.get('DEMO_LATENCY_MS')
+if DEMO_LATENCY_MS is None:
+    DEMO_LATENCY_MS = 0
 DEMO_CALLS = os.environ.get('DEMO_CALLS')
+if DEMO_CALLS is None:
+    DEMO_CALLS = ""
+PORT = os.environ.get('PORT')
+if PORT is None:
+    PORT = 8080
+else:
+    PORT = int(PORT)
 CALLS_TO = []
 if DEMO_CALLS:
     CALLS_TO = DEMO_CALLS.split(' ')
@@ -87,7 +98,5 @@ class Handler(http.server.SimpleHTTPRequestHandler) :
                     self.wfile.write(call_result.encode('utf-8', errors='ignore'))
 
 
-
-
-s = http.server.HTTPServer( ('', 8080), Handler )
+s = http.server.HTTPServer( ('', PORT), Handler )
 s.serve_forever()
