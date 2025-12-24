@@ -77,6 +77,12 @@ def load_patterns():
     return {}
 
 
+def get_rpm():
+    """Get requests per minute from control file."""
+    patterns = load_patterns()
+    return patterns.get("rpm", 10)
+
+
 def main():
     i = 0
     print("Starting OTEL demo loop. Press Ctrl+C to stop.")
@@ -84,6 +90,7 @@ def main():
         while running:
             i += 1
             patterns = load_patterns()
+            rpm = get_rpm()
             
             with tracer.start_as_current_span("demo.operation") as span:
                 span.set_attribute("demo.iteration", i)
@@ -113,7 +120,12 @@ def main():
                 time.sleep(latency)
 
             if i % 5 == 0:
-                print(f"Sent {i} spans so far... Active patterns: {list(patterns.keys())}")
+                print(f"Sent {i} spans so far... Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+            
+            # Calculate sleep time based on RPM
+            # RPM = requests per minute, so sleep = 60 / RPM seconds
+            sleep_time = 60.0 / rpm
+            time.sleep(sleep_time)
 
     finally:
         print("Shutting down tracer provider and flushing spans...")

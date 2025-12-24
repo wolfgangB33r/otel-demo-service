@@ -76,6 +76,12 @@ def load_patterns():
     return {}
 
 
+def get_rpm():
+    """Get requests per minute from control file."""
+    patterns = load_patterns()
+    return patterns.get("rpm", 10)
+
+
 _providers = []
 _processors = []
 _memory_leak_counter = 0
@@ -414,8 +420,12 @@ def main():
             simulate_frontend_request(i)
             if i % 10 == 0:
                 patterns = load_patterns()
-                print(f"Simulated {i} user sessions. Active patterns: {list(patterns.keys())}")
-            time.sleep(random.uniform(0.2, 1.0))
+                rpm = get_rpm()
+                print(f"Simulated {i} user sessions. Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+            
+            # Calculate sleep time based on RPM
+            sleep_time = 60.0 / get_rpm()
+            time.sleep(sleep_time)
     finally:
         print("Shutting down: flushing exporters and providers...")
         for proc in _processors:

@@ -42,6 +42,18 @@ function renderScenarios(scenarios) {
             `;
         }
         
+        const currentRpm = data.rpm || 10;
+        const rpmHtml = `
+            <div class="rpm-section">
+                <h4>Request Rate</h4>
+                <div class="rpm-control">
+                    <input type="range" class="rpm-slider" min="1" max="100" value="${currentRpm}" 
+                           oninput="updateRpm('${name}', this.value)">
+                    <span class="rpm-value" id="rpm-${name}">${currentRpm} req/min</span>
+                </div>
+            </div>
+        `;
+        
         card.innerHTML = `
             <h3>${name}</h3>
             <div class="scenario-info">
@@ -50,6 +62,7 @@ function renderScenarios(scenarios) {
                 ${data.pid ? `<div><strong>PID:</strong> ${data.pid}</div>` : ''}
             </div>
             ${patternsHtml}
+            ${rpmHtml}
             <div class="buttons">
                 <button class="btn-start" onclick="startScenario('${name}')" ${data.running ? 'disabled' : ''}>
                     Start
@@ -94,6 +107,24 @@ async function stopScenario(name) {
         }
     } catch (error) {
         showMessage('Failed to stop scenario: ' + error, 'error');
+    }
+}
+
+async function updateRpm(scenarioName, rpm) {
+    rpm = parseInt(rpm);
+    document.getElementById('rpm-' + scenarioName).textContent = rpm + ' req/min';
+    try {
+        const response = await fetch(API_BASE + '/scenarios/' + scenarioName + '/rpm', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({rpm: rpm})
+        });
+        const result = await response.json();
+        if (result.error) {
+            showMessage('Error: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showMessage('Failed to update RPM: ' + error, 'error');
     }
 }
 

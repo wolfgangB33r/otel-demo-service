@@ -76,6 +76,12 @@ def load_patterns():
     return {}
 
 
+def get_rpm():
+    """Get requests per minute from control file."""
+    patterns = load_patterns()
+    return patterns.get("rpm", 10)
+
+
 def make_tracer_for_service(service_name):
     # generate simulated Kubernetes-like resource attributes for each service instance
     instance_id = str(uuid.uuid4())
@@ -208,9 +214,12 @@ def main():
             simulate_web_request(i)
             if i % 10 == 0:
                 patterns = load_patterns()
-                print(f"Simulated {i} requests. Active patterns: {list(patterns.keys())}")
-            # pacing between incoming requests
-            time.sleep(random.uniform(0.05, 0.5))
+                rpm = get_rpm()
+                print(f"Simulated {i} requests. Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+            
+            # Calculate sleep time based on RPM
+            sleep_time = 60.0 / get_rpm()
+            time.sleep(sleep_time)
     finally:
         print("Shutting down: flushing exporters and providers...")
         # force flush processors, then shutdown providers

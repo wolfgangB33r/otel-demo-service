@@ -16,17 +16,29 @@ import subprocess
 import threading
 import glob
 from pathlib import Path
+from functools import wraps
 from dotenv import load_dotenv
 
 try:
-    from flask import Flask, render_template_string, jsonify, request, send_from_directory
+    from flask import Flask, render_template_string, jsonify, request, send_from_directory, session, redirect, url_for
+    from werkzeug.security import generate_password_hash, check_password_hash
 except ImportError:
-    print("ERROR: Flask not installed. Run: pip install flask")
+    print("ERROR: Flask or werkzeug not installed. Run: pip install flask werkzeug")
     sys.exit(1)
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24).hex())
+
+# Admin password from environment
+ADMIN_PASSWORD = os.getenv("APP_ADMIN_PASSWORD")
+if not ADMIN_PASSWORD:
+    print("WARNING: APP_ADMIN_PASSWORD not set.")
+    exit(1)
+
+# Simple user authentication 
+ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
 
 # Track running scenario processes
 _running_scenarios = {}
@@ -75,6 +87,21 @@ def discover_scenarios():
             "pid": None,
         }
     return scenarios
+
+
+def is_authenticated():
+    """Check if user is logged in."""
+    return session.get("logged_in", False)
+
+
+def require_auth(f):
+    """Decorator to require authentication for routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_authenticated():
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def start_scenario(scenario_name):
@@ -164,6 +191,22 @@ def toggle_pattern(scenario_name, pattern_name, enabled):
     return {"error": "Failed to save pattern"}
 
 
+def set_rpm(scenario_name, rpm):
+    """Set requests per minute for a scenario."""
+    rpm = max(1, min(int(rpm), 1000))  # Clamp between 1-1000
+    patterns = load_patterns(scenario_name)
+    patterns["rpm"] = rpm
+    if save_patterns(scenario_name, patterns):
+        return {"status": "ok", "rpm": rpm}
+    return {"error": "Failed to save RPM"}
+
+
+def get_rpm(scenario_name):
+    """Get requests per minute setting for a scenario."""
+    patterns = load_patterns(scenario_name)
+    return patterns.get("rpm", 10)  # Default 10 req/min
+
+
 def get_scenario_status():
     """Get status of all scenarios."""
     scenarios = discover_scenarios()
@@ -182,48 +225,198 @@ def get_scenario_status():
     return scenarios
 
 
+# Login Page HTML
+LOGIN_FORM = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OTEL Demo Service - Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .login-container {
+            background: #2a2a2a;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            color: #4dabf7;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #a0a0a0;
+            font-size: 14px;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #4dabf7;
+            box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.1);
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #4dabf7;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #5bc0de;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .error {
+            background: #ff6b6b;
+            color: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .info {
+            text-align: center;
+            font-size: 12px;
+            color: #808080;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>🌟 OTEL Demo Service</h1>
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+        <form method="POST">
+            <div class="form-group">
+                <label for="password">Admin Password</label>
+                <input type="password" id="password" name="password" required autofocus>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        <div class="info">
+            <p>Secure login with encrypted password hashing</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+
+# Routes
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Login route."""
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if check_password_hash(ADMIN_PASSWORD_HASH, password):
+            session["logged_in"] = True
+            return redirect(url_for("index"))
+        else:
+            return render_template_string(LOGIN_FORM, error="Invalid password. Please try again.")
+    return render_template_string(LOGIN_FORM)
+
+
+@app.route("/logout")
+def logout():
+    """Logout route."""
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
+@require_auth
 def index():
     """Serve the main dashboard."""
     return send_from_directory("www", "index.html")
 
 
 @app.route("/www/<path:filename>")
+@require_auth
 def serve_static(filename):
     """Serve static files (CSS, JS)."""
     return send_from_directory("www", filename)
 
 
 @app.route("/api/scenarios", methods=["GET"])
+@require_auth
 def list_scenarios():
     """API endpoint to list all scenarios and their status."""
     status = get_scenario_status()
-    # Add available patterns and current states
+    # Add available patterns, current states, and RPM
     for scenario_name in status:
         if scenario_name in PROBLEM_PATTERNS:
             status[scenario_name]["patterns"] = PROBLEM_PATTERNS[scenario_name]
             status[scenario_name]["pattern_states"] = load_patterns(scenario_name)
+            status[scenario_name]["rpm"] = get_rpm(scenario_name)
     return jsonify(status)
 
 
 @app.route("/api/scenarios/<scenario_name>/start", methods=["POST"])
+@require_auth
 def api_start(scenario_name):
     """API endpoint to start a scenario."""
     return jsonify(start_scenario(scenario_name))
 
 
 @app.route("/api/scenarios/<scenario_name>/stop", methods=["POST"])
+@require_auth
 def api_stop(scenario_name):
     """API endpoint to stop a scenario."""
     return jsonify(stop_scenario(scenario_name))
 
 
 @app.route("/api/scenarios/<scenario_name>/pattern/<pattern_name>", methods=["POST"])
+@require_auth
 def api_toggle_pattern(scenario_name, pattern_name):
     """API endpoint to toggle a problem pattern."""
     data = request.get_json() or {}
     enabled = data.get("enabled", False)
     return jsonify(toggle_pattern(scenario_name, pattern_name, enabled))
+
+
+@app.route("/api/scenarios/<scenario_name>/rpm", methods=["POST"])
+@require_auth
+def api_set_rpm(scenario_name):
+    """API endpoint to set requests per minute for a scenario."""
+    data = request.get_json() or {}
+    rpm = data.get("rpm", 10)
+    return jsonify(set_rpm(scenario_name, rpm))
 
 
 @app.route("/api/health", methods=["GET"])
@@ -252,7 +445,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("OTEL Demo Service Control Panel")
     print("=" * 60)
-    print("\n📊 Dashboard: http://localhost:8080")
+    print("\n🔐 Login: http://localhost:8080/login")
+    print("📊 Dashboard: http://localhost:8080")
     print("📋 Discovered scenarios:")
     
     scenarios = discover_scenarios()
@@ -262,6 +456,8 @@ if __name__ == "__main__":
     else:
         print("   (none found - create .py files in scenarios/ folder)")
     
+    print("\n📝 Default credentials:")
+    print("   Password: " + ("(from APP_ADMIN_PASSWORD env var)" if ADMIN_PASSWORD != "admin" else "admin"))
     print("\n" + "=" * 60)
     
     try:

@@ -2,6 +2,24 @@
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a1a1a; color: #e0e0e0; padding: 20px; }
 .container { max-width: 1200px; margin: 0 auto; }
 h1 { color: #4dabf7; margin-bottom: 30px; }
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+.header h1 { margin-bottom: 0; }
+.btn-logout {
+    padding: 8px 16px;
+    background: #ff6b6b;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.95em;
+    transition: all 0.2s;
+}
+.btn-logout:hover { background: #ff5252; }
 .scenarios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px; }
 .scenario-card {
     background: #2a2a2a;
@@ -103,3 +121,53 @@ button {
 .status-message.show { display: block; }
 .status-message.success { background: #4c6ef5; color: #fff; }
 .status-message.error { background: #ff6b6b; color: #fff; }
+.rpm-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #404040;
+}
+.rpm-section h4 { color: #a0a0a0; font-size: 0.85em; margin-bottom: 10px; }
+.rpm-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.rpm-slider {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: #404040;
+    outline: none;
+    -webkit-appearance: none;
+}
+.rpm-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4dabf7;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.rpm-slider::-webkit-slider-thumb:hover {
+    background: #5bc0de;
+}
+.rpm-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4dabf7;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+.rpm-slider::-moz-range-thumb:hover {
+    background: #5bc0de;
+}
+.rpm-value {
+    min-width: 50px;
+    text-align: right;
+    font-weight: bold;
+    color: #4dabf7;
+}
