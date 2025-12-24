@@ -23,6 +23,8 @@ import random
 import signal
 import sys
 import logging
+import json
+from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 
@@ -60,6 +62,18 @@ def make_exporter():
 # create tracer provider + tracer for a logical service name
 _providers = []
 _processors = []
+
+
+def load_patterns():
+    """Load problem patterns from control file."""
+    control_file = Path(".scenario_control_service-tree.json")
+    if control_file.exists():
+        try:
+            with open(control_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
 
 
 def make_tracer_for_service(service_name):
@@ -114,14 +128,29 @@ signal.signal(signal.SIGTERM, _shutdown)
 def simulate_db(parent_ctx):
     with tracer_db.start_as_current_span("db.query", context=parent_ctx, kind=SpanKind.SERVER) as span:
         span.set_attribute("db.statement", "SELECT * FROM items WHERE id=?")
-        time.sleep(random.uniform(0.01, 0.08))
+        patterns = load_patterns()
+        
+        base_time = random.uniform(0.01, 0.08)
+        if patterns.get("slow_db"):
+            base_time += random.uniform(0.5, 1.5)
+            span.set_attribute("pattern.slow_db", True)
+        
+        time.sleep(base_time)
 
 
 def simulate_cache(parent_ctx):
     with tracer_cache.start_as_current_span("cache.lookup", context=parent_ctx, kind=SpanKind.SERVER) as span:
+        patterns = load_patterns()
         hit = random.random() < 0.6
         span.set_attribute("cache.hit", hit)
-        time.sleep(random.uniform(0.005, 0.02))
+        
+        base_time = random.uniform(0.005, 0.02)
+        if patterns.get("slow_cache"):
+            base_time += random.uniform(0.3, 0.8)
+            span.set_attribute("pattern.slow_cache", True)
+        
+        time.sleep(base_time)
+        
         if not hit:
             # miss triggers a db call within same trace
             simulate_db(trace.set_span_in_context(span))
@@ -129,7 +158,14 @@ def simulate_cache(parent_ctx):
 
 def simulate_auth(parent_ctx):
     with tracer_auth.start_as_current_span("auth.validate", context=parent_ctx, kind=SpanKind.SERVER) as span:
-        ok = random.random() < 0.95
+        patterns = load_patterns()
+        ok = True
+        
+        if patterns.get("auth_failures") and random.random() < 0.15:
+            ok = False
+            span.set_attribute("error", True)
+            span.set_attribute("pattern.auth_failures", True)
+        
         span.set_attribute("auth.ok", ok)
         time.sleep(random.uniform(0.002, 0.01))
 
@@ -137,13 +173,21 @@ def simulate_auth(parent_ctx):
 def simulate_api(parent_ctx):
     with tracer_api.start_as_current_span("api.handle", context=parent_ctx, kind=SpanKind.SERVER) as span:
         span.set_attribute("http.route", "/items")
+        patterns = load_patterns()
+        
         # call auth and cache in sequence to simulate downstream services
         simulate_auth(trace.set_span_in_context(span))
         simulate_cache(trace.set_span_in_context(span))
         # sometimes perform a heavier DB operation
         if random.random() < 0.2:
             simulate_db(trace.set_span_in_context(span))
-        time.sleep(random.uniform(0.005, 0.05))
+        
+        base_time = random.uniform(0.005, 0.05)
+        if patterns.get("network_latency"):
+            base_time += random.uniform(0.2, 0.6)
+            span.set_attribute("pattern.network_latency", True)
+        
+        time.sleep(base_time)
 
 
 def simulate_web_request(request_id):
@@ -163,7 +207,8 @@ def main():
             i += 1
             simulate_web_request(i)
             if i % 10 == 0:
-                print(f"Simulated {i} requests")
+                patterns = load_patterns()
+                print(f"Simulated {i} requests. Active patterns: {list(patterns.keys())}")
             # pacing between incoming requests
             time.sleep(random.uniform(0.05, 0.5))
     finally:

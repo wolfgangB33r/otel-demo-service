@@ -27,6 +27,8 @@ import random
 import signal
 import sys
 import logging
+import json
+from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 
@@ -62,8 +64,21 @@ def make_exporter():
     )
 
 
+def load_patterns():
+    """Load problem patterns from control file."""
+    control_file = Path(".scenario_control_astroshop.json")
+    if control_file.exists():
+        try:
+            with open(control_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
 _providers = []
 _processors = []
+_memory_leak_counter = 0
 
 
 def make_tracer_for_service(service_name, service_version="1.0.0"):
@@ -162,9 +177,10 @@ def simulate_redis_operation(parent_ctx, operation):
     ) as span:
         span.set_attribute("db.system", "redis")
         span.set_attribute("db.operation", operation)
+        patterns = load_patterns()
         base_time = random.uniform(0.001, 0.005)
         
-        if PROBLEM_PATTERNS["network_latency"]:
+        if patterns.get("network_latency"):
             base_time += random.uniform(0.1, 0.5)
         
         time.sleep(base_time)
@@ -178,15 +194,16 @@ def simulate_productcatalog(parent_ctx):
         span.set_attribute("rpc.system", "grpc")
         span.set_attribute("rpc.service", "hipster.ProductCatalog")
         span.set_attribute("rpc.method", "ListProducts")
+        patterns = load_patterns()
         
         # Check cache first
         simulate_redis_operation(trace.set_span_in_context(span), "GET")
         
         base_time = random.uniform(0.02, 0.05)
         
-        if PROBLEM_PATTERNS["slow_productcatalog"]:
+        if patterns.get("slow_productcatalog"):
             base_time += random.uniform(0.5, 2.0)
-            span.set_attribute("error", "slow_response")
+            span.set_attribute("pattern.slow_productcatalog", True)
         
         span.set_attribute("rpc.grpc.status_code", 0)
         time.sleep(base_time)
@@ -200,12 +217,14 @@ def simulate_cartservice(parent_ctx, operation="GetCart"):
         span.set_attribute("rpc.system", "grpc")
         span.set_attribute("rpc.service", "hipster.CartService")
         span.set_attribute("rpc.method", operation)
+        patterns = load_patterns()
         
         # Check for cartservice errors
-        if PROBLEM_PATTERNS["cartservice_errors"] and random.random() < 0.1:
+        if patterns.get("cartservice_errors") and random.random() < 0.1:
             span.set_attribute("rpc.grpc.status_code", 2)  # UNKNOWN error
             span.set_attribute("error", True)
             span.set_attribute("error.message", "Cart service unavailable")
+            span.set_attribute("pattern.cartservice_errors", True)
             time.sleep(random.uniform(0.01, 0.03))
             return
         
@@ -240,16 +259,18 @@ def simulate_recommendation(parent_ctx):
         span.set_attribute("rpc.service", "hipster.RecommendationService")
         span.set_attribute("rpc.method", "ListRecommendations")
         span.set_attribute("rpc.grpc.status_code", 0)
+        patterns = load_patterns()
         
         # Call product catalog
         simulate_productcatalog(trace.set_span_in_context(span))
         
         base_time = random.uniform(0.03, 0.08)
         
-        if PROBLEM_PATTERNS["memory_leak_recommendation"]:
+        if patterns.get("memory_leak_recommendation"):
             _memory_leak_counter += 1
             leak_delay = (_memory_leak_counter / 1000) * 0.01  # Gradual increase
             base_time += leak_delay
+            span.set_attribute("pattern.memory_leak_recommendation", True)
             span.set_attribute("memory.leak_indicator", _memory_leak_counter)
         
         time.sleep(base_time)
@@ -265,11 +286,13 @@ def simulate_payment(parent_ctx):
         span.set_attribute("rpc.method", "Charge")
         span.set_attribute("payment.amount", round(random.uniform(10, 500), 2))
         span.set_attribute("payment.currency", "USD")
+        patterns = load_patterns()
         
-        if PROBLEM_PATTERNS["payment_timeout"] and random.random() < 0.5:
+        if patterns.get("payment_timeout") and random.random() < 0.5:
             span.set_attribute("rpc.grpc.status_code", 4)  # DEADLINE_EXCEEDED
             span.set_attribute("error", True)
             span.set_attribute("error.message", "Payment timeout")
+            span.set_attribute("pattern.payment_timeout", True)
             time.sleep(random.uniform(0.5, 2.0))
             return
         
@@ -286,13 +309,14 @@ def simulate_shipping(parent_ctx):
         span.set_attribute("rpc.service", "hipster.ShippingService")
         span.set_attribute("rpc.method", "GetQuote")
         span.set_attribute("shipping.country", random.choice(["US", "DE", "JP", "UK"]))
+        patterns = load_patterns()
         
         base_time = random.uniform(0.02, 0.06)
         
-        if PROBLEM_PATTERNS["high_cpu_shipping"]:
+        if patterns.get("high_cpu_shipping"):
             base_time += random.uniform(1.0, 3.0)
+            span.set_attribute("pattern.high_cpu_shipping", True)
             span.set_attribute("cpu.high", True)
-            span.set_attribute("error", "high_latency")
         
         span.set_attribute("rpc.grpc.status_code", 0)
         time.sleep(base_time)
@@ -383,15 +407,14 @@ def simulate_frontend_request(request_id):
 def main():
     i = 0
     print("Starting Astronomy Shop simulation. Press Ctrl+C to stop.")
-    print_patterns()
-    print("Type patterns to list them, or 'pattern_name=True/False' to toggle.")
     
     try:
         while running:
             i += 1
             simulate_frontend_request(i)
             if i % 10 == 0:
-                print(f"Simulated {i} user sessions")
+                patterns = load_patterns()
+                print(f"Simulated {i} user sessions. Active patterns: {list(patterns.keys())}")
             time.sleep(random.uniform(0.2, 1.0))
     finally:
         print("Shutting down: flushing exporters and providers...")

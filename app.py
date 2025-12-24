@@ -19,7 +19,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 try:
-    from flask import Flask, render_template_string, jsonify, request
+    from flask import Flask, render_template_string, jsonify, request, send_from_directory
 except ImportError:
     print("ERROR: Flask not installed. Run: pip install flask")
     sys.exit(1)
@@ -31,6 +31,30 @@ app = Flask(__name__)
 # Track running scenario processes
 _running_scenarios = {}
 _scenarios_lock = threading.Lock()
+
+# Problem patterns for each scenario
+PROBLEM_PATTERNS = {
+    "single": [
+        "slow_response",
+        "high_latency",
+        "error_rate",
+        "timeout",
+    ],
+    "service-tree": [
+        "slow_db",
+        "slow_cache",
+        "auth_failures",
+        "network_latency",
+    ],
+    "astroshop": [
+        "slow_productcatalog",
+        "cartservice_errors",
+        "payment_timeout",
+        "high_cpu_shipping",
+        "memory_leak_recommendation",
+        "network_latency",
+    ],
+}
 
 
 def discover_scenarios():
@@ -103,6 +127,43 @@ def stop_scenario(scenario_name):
             return {"error": str(e)}
 
 
+def get_control_file(scenario_name):
+    """Get path to control file for a scenario."""
+    return Path(f".scenario_control_{scenario_name}.json")
+
+
+def load_patterns(scenario_name):
+    """Load current patterns from control file."""
+    control_file = get_control_file(scenario_name)
+    if control_file.exists():
+        try:
+            with open(control_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_patterns(scenario_name, patterns):
+    """Save patterns to control file."""
+    control_file = get_control_file(scenario_name)
+    try:
+        with open(control_file, "w") as f:
+            json.dump(patterns, f)
+        return True
+    except Exception:
+        return False
+
+
+def toggle_pattern(scenario_name, pattern_name, enabled):
+    """Toggle a problem pattern for a scenario."""
+    patterns = load_patterns(scenario_name)
+    patterns[pattern_name] = enabled
+    if save_patterns(scenario_name, patterns):
+        return {"status": "ok", "pattern": pattern_name, "enabled": enabled}
+    return {"error": "Failed to save pattern"}
+
+
 def get_scenario_status():
     """Get status of all scenarios."""
     scenarios = discover_scenarios()
@@ -121,181 +182,28 @@ def get_scenario_status():
     return scenarios
 
 
-# HTML Template
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>OTEL Demo Service Control</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a1a1a; color: #e0e0e0; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { color: #4dabf7; margin-bottom: 30px; }
-        .scenarios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .scenario-card {
-            background: #2a2a2a;
-            border: 1px solid #404040;
-            border-radius: 8px;
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-        .scenario-card:hover { border-color: #4dabf7; background: #333; }
-        .scenario-card h3 { color: #4dabf7; margin-bottom: 10px; }
-        .scenario-info { font-size: 0.9em; color: #a0a0a0; margin-bottom: 15px; }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            font-weight: bold;
-            margin-right: 8px;
-        }
-        .status-running { background: #51cf66; color: #1a1a1a; }
-        .status-stopped { background: #ff6b6b; color: #fff; }
-        .buttons { display: flex; gap: 10px; margin-top: 15px; }
-        button {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-start {
-            background: #51cf66;
-            color: #1a1a1a;
-        }
-        .btn-start:hover { background: #40c057; }
-        .btn-stop {
-            background: #ff6b6b;
-            color: #fff;
-        }
-        .btn-stop:hover { background: #fa5252; }
-        .btn-stop:disabled { background: #666; cursor: not-allowed; }
-        .status-message { margin-top: 20px; padding: 15px; border-radius: 4px; display: none; }
-        .status-message.show { display: block; }
-        .status-message.success { background: #4c6ef5; color: #fff; }
-        .status-message.error { background: #ff6b6b; color: #fff; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🌟 OTEL Demo Service Control</h1>
-        
-        <div id="statusMessage" class="status-message"></div>
-        
-        <div class="scenarios-grid" id="scenariosContainer">
-            <!-- Populated by JavaScript -->
-        </div>
-    </div>
-
-    <script>
-        const API_BASE = '/api';
-        
-        async function loadScenarios() {
-            try {
-                const response = await fetch(API_BASE + '/scenarios');
-                const scenarios = await response.json();
-                renderScenarios(scenarios);
-            } catch (error) {
-                showMessage('Failed to load scenarios: ' + error, 'error');
-            }
-        }
-        
-        function renderScenarios(scenarios) {
-            const container = document.getElementById('scenariosContainer');
-            container.innerHTML = '';
-            
-            for (const [name, data] of Object.entries(scenarios)) {
-                const card = document.createElement('div');
-                card.className = 'scenario-card';
-                
-                const status = data.running ? 'running' : 'stopped';
-                const statusClass = data.running ? 'status-running' : 'status-stopped';
-                const statusText = data.running ? '🟢 Running' : '🔴 Stopped';
-                
-                card.innerHTML = `
-                    <h3>${name}</h3>
-                    <div class="scenario-info">
-                        <div><strong>Path:</strong> scenarios/${name}.py</div>
-                        <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></div>
-                        ${data.pid ? `<div><strong>PID:</strong> ${data.pid}</div>` : ''}
-                    </div>
-                    <div class="buttons">
-                        <button class="btn-start" onclick="startScenario('${name}')" ${data.running ? 'disabled' : ''}>
-                            Start
-                        </button>
-                        <button class="btn-stop" onclick="stopScenario('${name}')" ${!data.running ? 'disabled' : ''}>
-                            Stop
-                        </button>
-                    </div>
-                `;
-                container.appendChild(card);
-            }
-        }
-        
-        async function startScenario(name) {
-            try {
-                const response = await fetch(API_BASE + '/scenarios/' + name + '/start', {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                if (result.error) {
-                    showMessage('Error: ' + result.error, 'error');
-                } else {
-                    showMessage('✅ Scenario "' + name + '" started (PID: ' + result.pid + ')', 'success');
-                    setTimeout(loadScenarios, 500);
-                }
-            } catch (error) {
-                showMessage('Failed to start scenario: ' + error, 'error');
-            }
-        }
-        
-        async function stopScenario(name) {
-            try {
-                const response = await fetch(API_BASE + '/scenarios/' + name + '/stop', {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                if (result.error) {
-                    showMessage('Error: ' + result.error, 'error');
-                } else {
-                    showMessage('✅ Scenario "' + name + '" stopped', 'success');
-                    setTimeout(loadScenarios, 500);
-                }
-            } catch (error) {
-                showMessage('Failed to stop scenario: ' + error, 'error');
-            }
-        }
-        
-        function showMessage(msg, type) {
-            const elem = document.getElementById('statusMessage');
-            elem.textContent = msg;
-            elem.className = 'status-message show ' + type;
-            setTimeout(() => elem.classList.remove('show'), 4000);
-        }
-        
-        // Load scenarios on page load and refresh every 5 seconds
-        loadScenarios();
-        setInterval(loadScenarios, 5000);
-    </script>
-</body>
-</html>
-"""
-
-
 @app.route("/")
 def index():
     """Serve the main dashboard."""
-    return render_template_string(HTML_TEMPLATE)
+    return send_from_directory("www", "index.html")
+
+
+@app.route("/www/<path:filename>")
+def serve_static(filename):
+    """Serve static files (CSS, JS)."""
+    return send_from_directory("www", filename)
 
 
 @app.route("/api/scenarios", methods=["GET"])
 def list_scenarios():
     """API endpoint to list all scenarios and their status."""
-    return jsonify(get_scenario_status())
+    status = get_scenario_status()
+    # Add available patterns and current states
+    for scenario_name in status:
+        if scenario_name in PROBLEM_PATTERNS:
+            status[scenario_name]["patterns"] = PROBLEM_PATTERNS[scenario_name]
+            status[scenario_name]["pattern_states"] = load_patterns(scenario_name)
+    return jsonify(status)
 
 
 @app.route("/api/scenarios/<scenario_name>/start", methods=["POST"])
@@ -308,6 +216,14 @@ def api_start(scenario_name):
 def api_stop(scenario_name):
     """API endpoint to stop a scenario."""
     return jsonify(stop_scenario(scenario_name))
+
+
+@app.route("/api/scenarios/<scenario_name>/pattern/<pattern_name>", methods=["POST"])
+def api_toggle_pattern(scenario_name, pattern_name):
+    """API endpoint to toggle a problem pattern."""
+    data = request.get_json() or {}
+    enabled = data.get("enabled", False)
+    return jsonify(toggle_pattern(scenario_name, pattern_name, enabled))
 
 
 @app.route("/api/health", methods=["GET"])

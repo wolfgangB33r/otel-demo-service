@@ -11,6 +11,8 @@ import random
 import signal
 import sys
 import logging
+import json
+from pathlib import Path
 from dotenv import load_dotenv
 
 from opentelemetry import trace
@@ -63,21 +65,55 @@ signal.signal(signal.SIGINT, _shutdown)
 signal.signal(signal.SIGTERM, _shutdown)
 
 
+def load_patterns():
+    """Load problem patterns from control file."""
+    control_file = Path(".scenario_control_single.json")
+    if control_file.exists():
+        try:
+            with open(control_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
 def main():
     i = 0
     print("Starting OTEL demo loop. Press Ctrl+C to stop.")
     try:
         while running:
             i += 1
+            patterns = load_patterns()
+            
             with tracer.start_as_current_span("demo.operation") as span:
                 span.set_attribute("demo.iteration", i)
                 span.set_attribute("demo.random", random.random())
                 span.add_event("demo.event", {"iteration": i})
-                # simulate work
-                time.sleep(1)
+                
+                # Base latency
+                latency = 1.0
+                
+                # Apply problem patterns
+                if patterns.get("slow_response"):
+                    latency += random.uniform(0.5, 2.0)
+                    span.set_attribute("pattern.slow_response", True)
+                
+                if patterns.get("high_latency"):
+                    latency += random.uniform(1.0, 3.0)
+                    span.set_attribute("pattern.high_latency", True)
+                
+                if patterns.get("timeout") and random.random() < 0.1:
+                    span.set_attribute("error", True)
+                    span.set_attribute("pattern.timeout", True)
+                
+                if patterns.get("error_rate") and random.random() < 0.2:
+                    span.set_attribute("error", True)
+                    span.set_attribute("pattern.error_rate", True)
+                
+                time.sleep(latency)
 
             if i % 5 == 0:
-                print(f"Sent {i} spans so far...")
+                print(f"Sent {i} spans so far... Active patterns: {list(patterns.keys())}")
 
     finally:
         print("Shutting down tracer provider and flushing spans...")
