@@ -39,7 +39,7 @@ if not DT_OTEL_ENDPOINT or not DT_OTEL_API_KEY:
     sys.exit(1)
 
 
-resource = Resource.create({ResourceAttributes.SERVICE_NAME: "single-service"})
+resource = Resource.create({ResourceAttributes.SERVICE_NAME: "sim-single-service"})
 
 tracer_provider = TracerProvider(resource=resource)
 exporter = OTLPSpanExporter(
