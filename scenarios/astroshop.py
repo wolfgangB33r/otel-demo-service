@@ -119,17 +119,17 @@ def make_tracer_for_service(service_name, service_version="1.0.0"):
 
 
 # Create tracers for all Astronomy Shop services
-tracer_frontend = make_tracer_for_service("frontend", "1.0.0")
-tracer_cartservice = make_tracer_for_service("cartservice", "0.3.0")
-tracer_productcatalog = make_tracer_for_service("productcatalogservice", "0.3.0")
-tracer_recommendation = make_tracer_for_service("recommendationservice", "0.3.0")
-tracer_checkout = make_tracer_for_service("checkoutservice", "0.3.0")
-tracer_payment = make_tracer_for_service("paymentservice", "0.3.0")
-tracer_shipping = make_tracer_for_service("shippingservice", "0.3.0")
-tracer_email = make_tracer_for_service("emailservice", "0.3.0")
-tracer_currency = make_tracer_for_service("currencyservice", "0.3.0")
-tracer_ad = make_tracer_for_service("adservice", "0.3.0")
-tracer_redis = make_tracer_for_service("redis", "7.0")
+tracer_frontend = make_tracer_for_service("astroshop-frontend", "1.0.0")
+tracer_cartservice = make_tracer_for_service("astroshop-cartservice", "0.3.0")
+tracer_productcatalog = make_tracer_for_service("astroshop-productcatalogservice", "0.3.0")
+tracer_recommendation = make_tracer_for_service("astroshop-recommendationservice", "0.3.0")
+tracer_checkout = make_tracer_for_service("astroshop-checkoutservice", "0.3.0")
+tracer_payment = make_tracer_for_service("astroshop-paymentservice", "0.3.0")
+tracer_shipping = make_tracer_for_service("astroshop-shippingservice", "0.3.0")
+tracer_email = make_tracer_for_service("astroshop-emailservice", "0.3.0")
+tracer_currency = make_tracer_for_service("astroshop-currencyservice", "0.3.0")
+tracer_ad = make_tracer_for_service("astroshop-adservice", "0.3.0")
+tracer_redis = make_tracer_for_service("astroshop-redis", "7.0")
 
 running = True
 

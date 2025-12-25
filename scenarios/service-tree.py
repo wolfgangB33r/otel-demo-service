@@ -112,11 +112,11 @@ def make_tracer_for_service(service_name):
 
 
 # create tracers for each simulated service
-tracer_web = make_tracer_for_service("service-web")
-tracer_api = make_tracer_for_service("service-api")
-tracer_auth = make_tracer_for_service("service-auth")
-tracer_cache = make_tracer_for_service("service-cache")
-tracer_db = make_tracer_for_service("service-db")
+tracer_web = make_tracer_for_service("service-tree-web")
+tracer_api = make_tracer_for_service("service-tree-api")
+tracer_auth = make_tracer_for_service("service-tree-auth")
+tracer_cache = make_tracer_for_service("service-tree-cache")
+tracer_db = make_tracer_for_service("service-tree-db")
 
 running = True
 
