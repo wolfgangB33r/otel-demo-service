@@ -15,6 +15,14 @@ General OpenTelemetry ingest endpoint and authentication needs to be set as envi
 - APP_ADMIN_PASSWORD (mandatory): Admin password for dashboard login, must be set
 - FLASK_SECRET_KEY (optional): Secret key for Flask session encryption (auto-generated if not set)
 
+## How to run
+
+Multiple options to run the OTel astroshop demo simulation service.
+
+1. Run it directly in GitHub Codespaces
+2. Deploy and run it as a Docker container in Kubernetes or any serverless runtime, e.g.: Google Cloud Run (with always on mode)
+3. Run it on your local machine for testing purposes.
+
 ## Features
 
 - **Secure Authentication**  Flask-based dashboard with encrypted password hashing
