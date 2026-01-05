@@ -88,39 +88,43 @@ def main():
     print("Starting OTEL demo loop. Press Ctrl+C to stop.")
     try:
         while running:
-            i += 1
-            patterns = load_patterns()
-            rpm = get_rpm()
-            
-            with tracer.start_as_current_span("demo.operation") as span:
-                span.set_attribute("demo.iteration", i)
-                span.set_attribute("demo.random", random.random())
-                span.add_event("demo.event", {"iteration": i})
+            try:
+                i += 1
+                patterns = load_patterns()
+                rpm = get_rpm()
                 
-                # Base latency
-                latency = 1.0
-                
-                # Apply problem patterns
-                if patterns.get("slow_response"):
-                    latency += random.uniform(0.5, 2.0)
-                    span.set_attribute("pattern.slow_response", True)
-                
-                if patterns.get("high_latency"):
-                    latency += random.uniform(1.0, 3.0)
-                    span.set_attribute("pattern.high_latency", True)
-                
-                if patterns.get("timeout") and random.random() < 0.1:
-                    span.set_attribute("error", True)
-                    span.set_attribute("pattern.timeout", True)
-                
-                if patterns.get("error_rate") and random.random() < 0.2:
-                    span.set_attribute("error", True)
-                    span.set_attribute("pattern.error_rate", True)
-                
-                time.sleep(latency)
+                with tracer.start_as_current_span("demo.operation") as span:
+                    span.set_attribute("demo.iteration", i)
+                    span.set_attribute("demo.random", random.random())
+                    span.add_event("demo.event", {"iteration": i})
+                    
+                    # Base latency
+                    latency = 1.0
+                    
+                    # Apply problem patterns
+                    if patterns.get("slow_response"):
+                        latency += random.uniform(0.5, 2.0)
+                        span.set_attribute("pattern.slow_response", True)
+                    
+                    if patterns.get("high_latency"):
+                        latency += random.uniform(1.0, 3.0)
+                        span.set_attribute("pattern.high_latency", True)
+                    
+                    if patterns.get("timeout") and random.random() < 0.1:
+                        span.set_attribute("error", True)
+                        span.set_attribute("pattern.timeout", True)
+                    
+                    if patterns.get("error_rate") and random.random() < 0.2:
+                        span.set_attribute("error", True)
+                        span.set_attribute("pattern.error_rate", True)
+                    
+                    time.sleep(latency)
 
-            if i % 5 == 0:
-                print(f"Sent {i} spans so far... Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+                if i % 5 == 0:
+                    print(f"Sent {i} spans so far... Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+                
+            except Exception as e:
+                logging.exception(f"Error during simulation loop: {e}")
             
             # Calculate sleep time based on RPM
             # RPM = requests per minute, so sleep = 60 / RPM seconds

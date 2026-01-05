@@ -416,12 +416,15 @@ def main():
     
     try:
         while running:
-            i += 1
-            simulate_frontend_request(i)
-            if i % 10 == 0:
-                patterns = load_patterns()
-                rpm = get_rpm()
-                print(f"Simulated {i} user sessions. Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+            try:
+                i += 1
+                simulate_frontend_request(i)
+                if i % 10 == 0:
+                    patterns = load_patterns()
+                    rpm = get_rpm()
+                    print(f"Simulated {i} user sessions. Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+            except Exception as e:
+                logging.exception(f"Error during simulation loop: {e}")
             
             # Calculate sleep time based on RPM
             sleep_time = 60.0 / get_rpm()

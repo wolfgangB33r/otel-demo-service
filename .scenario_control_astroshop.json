@@ -1,1 +1,1 @@
-{"slow_productcatalog": true, "payment_timeout": true, "network_latency": true, "cartservice_errors": true}
+{"slow_productcatalog": false, "payment_timeout": false, "network_latency": false, "cartservice_errors": false}
