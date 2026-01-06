@@ -423,12 +423,12 @@ def main():
                     patterns = load_patterns()
                     rpm = get_rpm()
                     print(f"Simulated {i} user sessions. Active patterns: {list(patterns.keys())} | RPM: {rpm}")
+            
+                # Calculate sleep time based on RPM
+                sleep_time = 60.0 / get_rpm()
+                time.sleep(sleep_time)
             except Exception as e:
                 logging.exception(f"Error during simulation loop: {e}")
-            
-            # Calculate sleep time based on RPM
-            sleep_time = 60.0 / get_rpm()
-            time.sleep(sleep_time)
     finally:
         print("Shutting down: flushing exporters and providers...")
         for proc in _processors:

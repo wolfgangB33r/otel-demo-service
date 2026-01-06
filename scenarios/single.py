@@ -123,13 +123,12 @@ def main():
                 if i % 5 == 0:
                     print(f"Sent {i} spans so far... Active patterns: {list(patterns.keys())} | RPM: {rpm}")
                 
+                # Calculate sleep time based on RPM
+                # RPM = requests per minute, so sleep = 60 / RPM seconds
+                sleep_time = 60.0 / rpm
+                time.sleep(sleep_time)
             except Exception as e:
                 logging.exception(f"Error during simulation loop: {e}")
-            
-            # Calculate sleep time based on RPM
-            # RPM = requests per minute, so sleep = 60 / RPM seconds
-            sleep_time = 60.0 / rpm
-            time.sleep(sleep_time)
 
     finally:
         print("Shutting down tracer provider and flushing spans...")
