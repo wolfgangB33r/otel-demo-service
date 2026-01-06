@@ -113,21 +113,22 @@ def start_scenario(scenario_name):
     with _scenarios_lock:
         if scenario_name in _running_scenarios:
             proc = _running_scenarios[scenario_name]["process"]
-            if proc.poll() is None:  # Still running
+            if proc.poll() is None:
                 return {"error": f"Scenario '{scenario_name}' is already running"}
         
         scenario_path = scenarios[scenario_name]["path"]
         try:
+            # Open log file instead of piping to avoid blocking
+            log_file = open(f".scenario_{scenario_name}.log", "w")
             proc = subprocess.Popen(
                 [sys.executable, scenario_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
                 text=True,
             )
             _running_scenarios[scenario_name] = {
                 "process": proc,
                 "pid": proc.pid,
                 "status": "running",
+                "log_file": log_file,
             }
             return {"status": "started", "pid": proc.pid, "scenario": scenario_name}
         except Exception as e:
