@@ -42,6 +42,13 @@ Multiple options to run the OTel astroshop demo simulation service.
   - Monitor running scenarios and their PIDs
   - View live trace generation status
 
+- **Command Line Interface**  Scriptable scenario control optimized for AI agents:
+  - Standard `help` command and argparse `--help`
+  - JSON output by default for deterministic parsing
+  - Start/stop scenarios from the terminal
+  - List scenarios, schedules, and available problem patterns
+  - Add and remove cron-scheduled problem injections
+
 - **Problem Pattern Injection**  Simulate real-world issues without code changes:
   - Slow responses and high latency
   - Service errors and timeouts
@@ -103,6 +110,68 @@ Example cron expressions:
 - `*/15 * * * *` → every 15 minutes
 
 When a schedule becomes active, the corresponding problem pattern is applied automatically by the running scenario process.
+
+## CLI usage
+
+The project includes an AI-friendly command line interface in [otel-demo-cli.py](otel-demo-cli.py) for managing scenarios without using the web UI.
+
+🤖✨ Built by AI, for AI agents — because even robots deserve first-class tooling. 🤝🧠
+
+### Why this CLI is AI-agent friendly
+
+- JSON output by default (`--format json`)
+- Stable, non-interactive commands
+- Standard help output and deterministic exit codes
+- Exit code `0` on success, non-zero on errors
+
+### Help
+
+```bash
+python otel-demo-cli.py help
+python otel-demo-cli.py --help
+python otel-demo-cli.py help add-schedule
+```
+
+### List scenarios and status
+
+```bash
+python otel-demo-cli.py list
+```
+
+### Start and stop scenarios
+
+```bash
+python otel-demo-cli.py start astroshop
+python otel-demo-cli.py stop astroshop
+```
+
+### List available problem patterns
+
+```bash
+python otel-demo-cli.py problems
+python otel-demo-cli.py problems astroshop
+```
+
+### List configured schedules
+
+```bash
+python otel-demo-cli.py schedules
+python otel-demo-cli.py schedules astroshop
+```
+
+### Add and remove cron schedules
+
+```bash
+python otel-demo-cli.py add-schedule astroshop --pattern slow_productcatalog --cron "0 0 * * 1" --duration-minutes 60
+python otel-demo-cli.py add-schedule astroshop --pattern slow_productcatalog --cron "0 12 * * 2" --duration-minutes 60
+python otel-demo-cli.py remove-schedule astroshop <schedule-id>
+```
+
+### Optional text output
+
+```bash
+python otel-demo-cli.py --format text list
+```
 
 ## Security Notes
 
