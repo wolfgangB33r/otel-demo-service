@@ -27,10 +27,15 @@ import random
 import signal
 import sys
 import logging
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 import uuid
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from utils.schedule_utils import get_active_patterns, get_rpm as get_control_rpm
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
@@ -64,22 +69,25 @@ def make_exporter():
     )
 
 
+CONTROL_FILE = Path(".scenario_control_astroshop.json")
+AVAILABLE_PATTERNS = [
+    "slow_productcatalog",
+    "cartservice_errors",
+    "payment_timeout",
+    "high_cpu_shipping",
+    "memory_leak_recommendation",
+    "network_latency",
+]
+
+
 def load_patterns():
-    """Load problem patterns from control file."""
-    control_file = Path(".scenario_control_astroshop.json")
-    if control_file.exists():
-        try:
-            with open(control_file, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+    """Load active problem patterns from control file and schedules."""
+    return get_active_patterns(CONTROL_FILE, AVAILABLE_PATTERNS)
 
 
 def get_rpm():
     """Get requests per minute from control file."""
-    patterns = load_patterns()
-    return patterns.get("rpm", 10)
+    return get_control_rpm(CONTROL_FILE)
 
 
 _providers = []
@@ -141,38 +149,6 @@ def _shutdown(signum, frame):
 
 signal.signal(signal.SIGINT, _shutdown)
 signal.signal(signal.SIGTERM, _shutdown)
-
-
-# Add problem pattern toggles at the top after imports
-PROBLEM_PATTERNS = {
-    "slow_productcatalog": False,  # Adds 500ms-2s latency
-    "cartservice_errors": False,   # 10% error rate
-    "payment_timeout": False,      # 50% timeout errors
-    "high_cpu_shipping": False,    # Adds 1-3s latency
-    "memory_leak_recommendation": False,  # Gradually increases latency
-    "network_latency": False,      # +100-500ms on all calls
-}
-
-# Track memory leak state
-_memory_leak_counter = 0
-
-
-def toggle_pattern(pattern_name, enabled):
-    """Toggle a problem pattern on/off at runtime."""
-    if pattern_name in PROBLEM_PATTERNS:
-        PROBLEM_PATTERNS[pattern_name] = enabled
-        print(f"Problem pattern '{pattern_name}' set to {enabled}")
-    else:
-        print(f"Unknown pattern: {pattern_name}")
-
-
-def print_patterns():
-    """Print current pattern status."""
-    print("\n=== Problem Patterns ===")
-    for pattern, enabled in PROBLEM_PATTERNS.items():
-        status = "ON" if enabled else "OFF"
-        print(f"  {pattern}: {status}")
-    print()
 
 
 # Service simulation functions

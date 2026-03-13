@@ -7,3 +7,4 @@ opentelemetry-instrumentation-wsgi
 opentelemetry-instrumentation-requests
 fastapi
 uvicorn
+croniter

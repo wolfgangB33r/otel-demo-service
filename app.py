@@ -15,9 +15,11 @@ import json
 import subprocess
 import threading
 import glob
+import uuid
 from pathlib import Path
 from functools import wraps
 from dotenv import load_dotenv
+from croniter import croniter
 
 try:
     from flask import Flask, render_template_string, jsonify, request, send_from_directory, session, redirect, url_for
@@ -214,52 +216,125 @@ def get_control_file(scenario_name):
     return Path(f".scenario_control_{scenario_name}.json")
 
 
-def load_patterns(scenario_name):
-    """Load current patterns from control file."""
+def load_control_data(scenario_name):
+    """Load control data from control file."""
     control_file = get_control_file(scenario_name)
     if control_file.exists():
         try:
             with open(control_file, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
         except Exception:
             return {}
     return {}
 
 
-def save_patterns(scenario_name, patterns):
-    """Save patterns to control file."""
+def save_control_data(scenario_name, control_data):
+    """Save control data to control file."""
     control_file = get_control_file(scenario_name)
     try:
         with open(control_file, "w") as f:
-            json.dump(patterns, f)
+            json.dump(control_data, f)
         return True
     except Exception:
         return False
 
 
-def toggle_pattern(scenario_name, pattern_name, enabled):
-    """Toggle a problem pattern for a scenario."""
-    patterns = load_patterns(scenario_name)
-    patterns[pattern_name] = enabled
-    if save_patterns(scenario_name, patterns):
-        return {"status": "ok", "pattern": pattern_name, "enabled": enabled}
-    return {"error": "Failed to save pattern"}
+def get_schedules(scenario_name):
+    """Get cron scheduled pattern entries for a scenario."""
+    control_data = load_control_data(scenario_name)
+    schedules = control_data.get("schedules", [])
+    if not isinstance(schedules, list):
+        return []
+
+    normalized = []
+    for entry in schedules:
+        if not isinstance(entry, dict):
+            continue
+        pattern = entry.get("pattern")
+        cron = entry.get("cron")
+        duration_minutes = entry.get("duration_minutes")
+        entry_id = entry.get("id")
+        try:
+            duration_minutes = int(duration_minutes)
+        except (TypeError, ValueError):
+            continue
+        if not pattern or not cron or duration_minutes < 1:
+            continue
+        normalized.append({
+            "id": entry_id or uuid.uuid4().hex,
+            "pattern": pattern,
+            "cron": cron,
+            "duration_minutes": duration_minutes,
+        })
+    return normalized
+
+
+def add_schedule(scenario_name, pattern_name, cron, duration_minutes):
+    """Add a cron schedule entry for a scenario pattern."""
+    available = PROBLEM_PATTERNS.get(scenario_name, [])
+    if pattern_name not in available:
+        return {"error": f"Pattern '{pattern_name}' is not available for scenario '{scenario_name}'"}
+
+    cron = str(cron).strip()
+    if len(cron.split()) != 5:
+        return {"error": "Cron must have exactly 5 fields (minute hour day month weekday)"}
+    if not croniter.is_valid(cron):
+        return {"error": "Invalid cron expression"}
+
+    try:
+        duration_minutes = int(duration_minutes)
+    except (TypeError, ValueError):
+        return {"error": "Duration must be an integer number of minutes"}
+
+    duration_minutes = max(1, min(duration_minutes, 7 * 24 * 60))
+
+    control_data = load_control_data(scenario_name)
+    schedules = get_schedules(scenario_name)
+    new_entry = {
+        "id": uuid.uuid4().hex,
+        "pattern": pattern_name,
+        "cron": cron,
+        "duration_minutes": duration_minutes,
+    }
+    schedules.append(new_entry)
+    control_data["schedules"] = schedules
+
+    if save_control_data(scenario_name, control_data):
+        return {"status": "ok", "schedule": new_entry}
+    return {"error": "Failed to save schedule"}
+
+
+def remove_schedule(scenario_name, schedule_id):
+    """Remove a cron schedule entry from a scenario."""
+    control_data = load_control_data(scenario_name)
+    schedules = get_schedules(scenario_name)
+    remaining = [entry for entry in schedules if entry["id"] != schedule_id]
+
+    if len(remaining) == len(schedules):
+        return {"error": f"Schedule '{schedule_id}' not found"}
+
+    control_data["schedules"] = remaining
+    if save_control_data(scenario_name, control_data):
+        return {"status": "ok", "removed": schedule_id}
+    return {"error": "Failed to save schedule"}
 
 
 def set_rpm(scenario_name, rpm):
     """Set requests per minute for a scenario."""
     rpm = max(1, min(int(rpm), 1000))  # Clamp between 1-1000
-    patterns = load_patterns(scenario_name)
-    patterns["rpm"] = rpm
-    if save_patterns(scenario_name, patterns):
+    control_data = load_control_data(scenario_name)
+    control_data["rpm"] = rpm
+    if save_control_data(scenario_name, control_data):
         return {"status": "ok", "rpm": rpm}
     return {"error": "Failed to save RPM"}
 
 
 def get_rpm(scenario_name):
     """Get requests per minute setting for a scenario."""
-    patterns = load_patterns(scenario_name)
-    return patterns.get("rpm", 10)  # Default 10 req/min
+    control_data = load_control_data(scenario_name)
+    return control_data.get("rpm", 10)  # Default 10 req/min
 
 
 def get_scenario_status():
@@ -433,11 +508,11 @@ def serve_static(filename):
 def list_scenarios():
     """API endpoint to list all scenarios and their status."""
     status = get_scenario_status()
-    # Add available patterns, current states, and RPM
+    # Add available patterns, configured schedules, and RPM
     for scenario_name in status:
         if scenario_name in PROBLEM_PATTERNS:
-            status[scenario_name]["patterns"] = PROBLEM_PATTERNS[scenario_name]
-            status[scenario_name]["pattern_states"] = load_patterns(scenario_name)
+            status[scenario_name]["available_patterns"] = PROBLEM_PATTERNS[scenario_name]
+            status[scenario_name]["schedule_entries"] = get_schedules(scenario_name)
             status[scenario_name]["rpm"] = get_rpm(scenario_name)
     return jsonify(status)
 
@@ -456,13 +531,32 @@ def api_stop(scenario_name):
     return jsonify(stop_scenario(scenario_name))
 
 
-@app.route("/api/scenarios/<scenario_name>/pattern/<pattern_name>", methods=["POST"])
+@app.route("/api/scenarios/<scenario_name>/schedules", methods=["POST"])
 @require_auth
-def api_toggle_pattern(scenario_name, pattern_name):
-    """API endpoint to toggle a problem pattern."""
+def api_add_schedule(scenario_name):
+    """API endpoint to add a cron schedule for a scenario pattern."""
+    if scenario_name not in PROBLEM_PATTERNS:
+        return jsonify({"error": f"Unknown scenario '{scenario_name}'"}), 404
+
     data = request.get_json() or {}
-    enabled = data.get("enabled", False)
-    return jsonify(toggle_pattern(scenario_name, pattern_name, enabled))
+    pattern = data.get("pattern")
+    cron = data.get("cron", "")
+    duration_minutes = data.get("duration_minutes", 60)
+    result = add_schedule(scenario_name, pattern, cron, duration_minutes)
+    status_code = 400 if result.get("error") else 200
+    return jsonify(result), status_code
+
+
+@app.route("/api/scenarios/<scenario_name>/schedules/<schedule_id>", methods=["DELETE"])
+@require_auth
+def api_remove_schedule(scenario_name, schedule_id):
+    """API endpoint to remove a cron schedule from a scenario."""
+    if scenario_name not in PROBLEM_PATTERNS:
+        return jsonify({"error": f"Unknown scenario '{scenario_name}'"}), 404
+
+    result = remove_schedule(scenario_name, schedule_id)
+    status_code = 404 if result.get("error") else 200
+    return jsonify(result), status_code
 
 
 @app.route("/api/scenarios/<scenario_name>/rpm", methods=["POST"])

@@ -23,10 +23,15 @@ import random
 import signal
 import sys
 import logging
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 import uuid
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from utils.schedule_utils import get_active_patterns, get_rpm as get_control_rpm
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
@@ -62,24 +67,18 @@ def make_exporter():
 # create tracer provider + tracer for a logical service name
 _providers = []
 _processors = []
+CONTROL_FILE = Path(".scenario_control_service-tree.json")
+AVAILABLE_PATTERNS = ["slow_db", "slow_cache", "auth_failures", "network_latency"]
 
 
 def load_patterns():
-    """Load problem patterns from control file."""
-    control_file = Path(".scenario_control_service-tree.json")
-    if control_file.exists():
-        try:
-            with open(control_file, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+    """Load active problem patterns from control file and schedules."""
+    return get_active_patterns(CONTROL_FILE, AVAILABLE_PATTERNS)
 
 
 def get_rpm():
     """Get requests per minute from control file."""
-    patterns = load_patterns()
-    return patterns.get("rpm", 10)
+    return get_control_rpm(CONTROL_FILE)
 
 
 def make_tracer_for_service(service_name):

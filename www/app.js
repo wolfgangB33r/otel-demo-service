@@ -22,25 +22,34 @@ function renderScenarios(scenarios) {
         const statusClass = data.running ? 'status-running' : 'status-stopped';
         const statusText = data.running ? '🟢 Running' : '🔴 Stopped';
         
-        let patternsHtml = '';
-        if (data.patterns && data.patterns.length > 0) {
-            patternsHtml = `
-                <div class="patterns-section">
-                    <h4>Problem Patterns</h4>
-                    <div class="pattern-grid">
-                        ${data.patterns.map(pattern => `
-                            <div class="pattern-toggle">
-                                <label class="toggle-switch">
-                                    <input type="checkbox" onchange="togglePattern('${name}', '${pattern}', this.checked)" ${data.pattern_states && data.pattern_states[pattern] ? 'checked' : ''}>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                                <span>${pattern}</span>
-                            </div>
-                        `).join('')}
-                    </div>
+        const scenarioId = toSafeId(name);
+        const scheduleEntries = data.schedule_entries || [];
+        const patternOptions = (data.available_patterns || []).map(pattern =>
+            `<option value="${escapeHtml(pattern)}">${escapeHtml(pattern)}</option>`
+        ).join('');
+
+        const schedulesHtml = `
+            <div class="patterns-section">
+                <h4>Scheduled Problems</h4>
+                <div class="schedule-list">
+                    ${scheduleEntries.length ? scheduleEntries.map(entry => `
+                        <div class="schedule-item">
+                            <span>${escapeHtml(entry.cron)} → ${escapeHtml(entry.pattern)} for ${entry.duration_minutes} min</span>
+                            <button class="btn-remove" onclick="removeSchedule('${name}', '${entry.id}')">Remove</button>
+                        </div>
+                    `).join('') : '<div class="schedule-empty">No schedules configured.</div>'}
                 </div>
-            `;
-        }
+                <div class="schedule-form">
+                    <select id="pattern-${scenarioId}">
+                        ${patternOptions}
+                    </select>
+                    <input id="cron-${scenarioId}" type="text" placeholder="Cron (e.g. 0 0 * * 1)">
+                    <input id="duration-${scenarioId}" type="number" min="1" max="10080" value="60" placeholder="Minutes">
+                    <button class="btn-add" onclick="addSchedule('${name}')">Add</button>
+                </div>
+                <div class="cron-help">Examples: Monday 00:00 = 0 0 * * 1, Tuesday 13:00 = 0 13 * * 2</div>
+            </div>
+        `;
         
         const currentRpm = data.rpm || 10;
         const rpmHtml = `
@@ -61,7 +70,7 @@ function renderScenarios(scenarios) {
                 <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></div>
                 ${data.pid ? `<div><strong>PID:</strong> ${data.pid}</div>` : ''}
             </div>
-            ${patternsHtml}
+            ${schedulesHtml}
             ${rpmHtml}
             <div class="buttons">
                 <button class="btn-start" onclick="startScenario('${name}')" ${data.running ? 'disabled' : ''}>
@@ -86,10 +95,11 @@ async function startScenario(name) {
             showMessage('Error: ' + result.error, 'error');
         } else {
             showMessage('✅ Scenario "' + name + '" started (PID: ' + result.pid + ')', 'success');
-            setTimeout(loadScenarios, 500);
         }
     } catch (error) {
         showMessage('Failed to start scenario: ' + error, 'error');
+    } finally {
+        setTimeout(loadScenarios, 300);
     }
 }
 
@@ -103,10 +113,11 @@ async function stopScenario(name) {
             showMessage('Error: ' + result.error, 'error');
         } else {
             showMessage('✅ Scenario "' + name + '" stopped', 'success');
-            setTimeout(loadScenarios, 500);
         }
     } catch (error) {
         showMessage('Failed to stop scenario: ' + error, 'error');
+    } finally {
+        setTimeout(loadScenarios, 300);
     }
 }
 
@@ -128,22 +139,76 @@ async function updateRpm(scenarioName, rpm) {
     }
 }
 
-async function togglePattern(scenarioName, patternName, enabled) {
+async function addSchedule(scenarioName) {
+    const scenarioId = toSafeId(scenarioName);
+    const patternElem = document.getElementById('pattern-' + scenarioId);
+    const cronElem = document.getElementById('cron-' + scenarioId);
+    const durationElem = document.getElementById('duration-' + scenarioId);
+
+    const pattern = patternElem ? patternElem.value : '';
+    const cron = cronElem ? cronElem.value.trim() : '';
+    const durationMinutes = durationElem ? parseInt(durationElem.value, 10) : 60;
+
+    if (!pattern || !cron || !durationMinutes || durationMinutes < 1) {
+        showMessage('Please provide pattern, cron schedule and duration (minutes).', 'error');
+        return;
+    }
+
     try {
-        const response = await fetch(API_BASE + '/scenarios/' + scenarioName + '/pattern/' + patternName, {
+        const response = await fetch(API_BASE + '/scenarios/' + scenarioName + '/schedules', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({enabled: enabled})
+            body: JSON.stringify({
+                pattern: pattern,
+                cron: cron,
+                duration_minutes: durationMinutes
+            })
         });
         const result = await response.json();
         if (result.error) {
             showMessage('Error: ' + result.error, 'error');
         } else {
-            showMessage('✅ Pattern "' + patternName + '" ' + (enabled ? 'enabled' : 'disabled'), 'success');
+            showMessage('✅ Schedule added for "' + pattern + '"', 'success');
+            if (cronElem) {
+                cronElem.value = '';
+            }
         }
     } catch (error) {
-        showMessage('Failed to toggle pattern: ' + error, 'error');
+        showMessage('Failed to add schedule: ' + error, 'error');
+    } finally {
+        setTimeout(loadScenarios, 300);
     }
+}
+
+async function removeSchedule(scenarioName, scheduleId) {
+    try {
+        const response = await fetch(API_BASE + '/scenarios/' + scenarioName + '/schedules/' + scheduleId, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.error) {
+            showMessage('Error: ' + result.error, 'error');
+        } else {
+            showMessage('✅ Schedule removed', 'success');
+        }
+    } catch (error) {
+        showMessage('Failed to remove schedule: ' + error, 'error');
+    } finally {
+        setTimeout(loadScenarios, 300);
+    }
+}
+
+function toSafeId(value) {
+    return value.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function showMessage(msg, type) {
@@ -153,6 +218,5 @@ function showMessage(msg, type) {
     setTimeout(() => elem.classList.remove('show'), 4000);
 }
 
-// Load scenarios on page load and refresh every 5 seconds
+// Load scenarios on page load
 loadScenarios();
-setInterval(loadScenarios, 5000);
