@@ -58,24 +58,26 @@ Multiple options to run the OTel astroshop demo simulation service.
 
 Python 3.8+ and the following packages (see requirements.txt):
 
-`ash
+```bash
 pip install -r requirements.txt
-`
+```
 
 ## Usage
 
 1. Create a .env file with your credentials:
-`ash
+
+```bash
 DT_OTEL_ENDPOINT=https://your-env-id.live.dynatrace.com/api/v2/otlp/v1/traces
 DT_OTEL_API_KEY=your_api_key
 APP_ADMIN_PASSWORD=your_secure_password
-`
+```
 
 2. Install and run:
-`ash
+
+```bash
 pip install -r requirements.txt
 python app.py
-`
+```
 
 3. Navigate to http://localhost:8080/login and log in with your admin password
 
