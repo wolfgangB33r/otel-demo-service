@@ -43,6 +43,7 @@ ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
 # Track running scenario processes
 _running_scenarios = {}
 _scenarios_lock = threading.Lock()
+SCENARIO_STATE_FILE = Path(".scenario_states.json")
 
 # Problem patterns for each scenario
 PROBLEM_PATTERNS = {
@@ -89,6 +90,56 @@ def discover_scenarios():
     return scenarios
 
 
+def load_scenario_states():
+    """Load persisted scenario enabled states from disk."""
+    if not SCENARIO_STATE_FILE.exists():
+        return {}
+
+    try:
+        with open(SCENARIO_STATE_FILE, "r") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def save_scenario_states(states):
+    """Persist scenario enabled states to disk."""
+    try:
+        with open(SCENARIO_STATE_FILE, "w") as f:
+            json.dump(states, f)
+        return True
+    except Exception:
+        return False
+
+
+def set_scenario_enabled(scenario_name, enabled):
+    """Set and persist whether a scenario should be auto-started."""
+    states = load_scenario_states()
+    states[scenario_name] = bool(enabled)
+    return save_scenario_states(states)
+
+
+def restore_enabled_scenarios():
+    """Start all scenarios that were previously marked as enabled."""
+    states = load_scenario_states()
+    enabled_scenarios = [name for name, enabled in states.items() if enabled]
+
+    if not enabled_scenarios:
+        print("\n🔁 No persisted enabled scenarios to restore.")
+        return
+
+    print("\n🔁 Restoring persisted enabled scenarios:")
+    for scenario_name in enabled_scenarios:
+        result = start_scenario(scenario_name)
+        if result.get("error"):
+            print(f"   - {scenario_name}: failed ({result['error']})")
+        else:
+            print(f"   - {scenario_name}: started (PID: {result['pid']})")
+
+
 def is_authenticated():
     """Check if user is logged in."""
     return session.get("logged_in", False)
@@ -130,6 +181,7 @@ def start_scenario(scenario_name):
                 "status": "running",
                 "log_file": log_file,
             }
+            set_scenario_enabled(scenario_name, True)
             return {"status": "started", "pid": proc.pid, "scenario": scenario_name}
         except Exception as e:
             return {"error": str(e)}
@@ -146,10 +198,12 @@ def stop_scenario(scenario_name):
             proc.terminate()
             proc.wait(timeout=5)
             del _running_scenarios[scenario_name]
+            set_scenario_enabled(scenario_name, False)
             return {"status": "stopped", "scenario": scenario_name}
         except subprocess.TimeoutExpired:
             proc.kill()
             del _running_scenarios[scenario_name]
+            set_scenario_enabled(scenario_name, False)
             return {"status": "killed", "scenario": scenario_name}
         except Exception as e:
             return {"error": str(e)}
@@ -460,6 +514,8 @@ if __name__ == "__main__":
     print("\n📝 Default credentials:")
     print("   Password: " + ("(from APP_ADMIN_PASSWORD env var)" if ADMIN_PASSWORD != "admin" else "admin"))
     print("\n" + "=" * 60)
+
+    restore_enabled_scenarios()
     
     try:
         app.run(host="0.0.0.0", port=8080, debug=False)
