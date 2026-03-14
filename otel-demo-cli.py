@@ -81,6 +81,11 @@ def render_output(result, output_format):
         for name, details in result.get("scenarios", {}).items():
             status = "running" if details.get("running") else "stopped"
             print(f"{name}: {status}")
+            description_lines = details.get("description_lines", [])
+            if description_lines:
+                print("  description:")
+                for line in description_lines:
+                    print(f"    {line}")
             print(f"  rpm: {details.get('rpm')}")
             print(f"  pid: {details.get('pid')}")
             print(f"  patterns: {', '.join(details.get('available_patterns', []))}")

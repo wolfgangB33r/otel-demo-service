@@ -37,6 +37,30 @@ PROBLEM_PATTERNS = {
     ],
 }
 
+SCENARIO_DESCRIPTIONS = {
+    "single": [
+        "Purpose: emit a steady stream of spans from one synthetic service.",
+        "Topology: a single process creates one primary span per simulated request.",
+        "Signal shape: span attributes mark iteration count, randomness, and injected faults.",
+        "Failure modes: slow responses, latency spikes, errors, and intermittent timeouts.",
+        "Best for: validating OTLP ingest, dashboards, and baseline single-service alerting.",
+    ],
+    "service-tree": [
+        "Purpose: model a compact multi-tier application with clear downstream dependencies.",
+        "Topology: web calls api, which fans out to auth, cache, and database services.",
+        "Signal shape: each logical service uses its own tracer resource within one trace.",
+        "Failure modes: slow cache or database paths, auth failures, and network latency.",
+        "Best for: testing service-flow analysis, dependency maps, and root-cause views.",
+    ],
+    "astroshop": [
+        "Purpose: simulate the Astronomy Shop microservice estate without running the real stack.",
+        "Topology: frontend coordinates cart, catalog, recommendation, checkout, payment, and more.",
+        "Signal shape: traces include gRPC, Redis, and Kubernetes-style resource metadata.",
+        "Failure modes: catalog slowdowns, cart errors, payment timeouts, leaks, and latency.",
+        "Best for: exercising complex distributed-tracing workflows at realistic service scale.",
+    ],
+}
+
 
 def get_control_file(scenario_name: str) -> Path:
     return BASE_DIR / f".scenario_control_{scenario_name}.json"
@@ -364,6 +388,9 @@ def get_scenario_status() -> dict:
 def get_scenario_details() -> dict:
     status = get_scenario_status()
     for scenario_name in sorted(status):
+        description_lines = SCENARIO_DESCRIPTIONS.get(scenario_name, [])
+        status[scenario_name]["description_lines"] = description_lines
+        status[scenario_name]["description"] = "\n".join(description_lines)
         if scenario_name in PROBLEM_PATTERNS:
             status[scenario_name]["available_patterns"] = PROBLEM_PATTERNS[scenario_name]
             status[scenario_name]["schedule_entries"] = get_schedules(scenario_name)

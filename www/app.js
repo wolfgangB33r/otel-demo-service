@@ -24,9 +24,17 @@ function renderScenarios(scenarios) {
         
         const scenarioId = toSafeId(name);
         const scheduleEntries = data.schedule_entries || [];
+        const descriptionLines = data.description_lines || [];
         const patternOptions = (data.available_patterns || []).map(pattern =>
             `<option value="${escapeHtml(pattern)}">${escapeHtml(pattern)}</option>`
         ).join('');
+        const descriptionHtml = descriptionLines.length
+            ? `
+                <div class="scenario-description">
+                    ${descriptionLines.map(line => `<div class="scenario-description-line">${escapeHtml(line)}</div>`).join('')}
+                </div>
+            `
+            : '';
 
         const schedulesHtml = `
             <div class="patterns-section">
@@ -65,6 +73,7 @@ function renderScenarios(scenarios) {
         
         card.innerHTML = `
             <h3>${name}</h3>
+            ${descriptionHtml}
             <div class="scenario-info">
                 <div><strong>Path:</strong> scenarios/${name}.py</div>
                 <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></div>

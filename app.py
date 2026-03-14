@@ -27,13 +27,13 @@ from utils.scenario_manager import (
     add_schedule,
     cleanup_running_scenarios,
     discover_scenarios,
-    get_rpm,
+    get_scenario_details,
     get_scenario_status,
     get_schedules,
     restore_enabled_scenarios,
-    set_rpm,
     start_scenario,
     stop_scenario,
+    set_rpm,
 )
 
 load_dotenv()
@@ -213,13 +213,7 @@ def serve_static(filename):
 @require_auth
 def list_scenarios():
     """API endpoint to list all scenarios and their status."""
-    status = get_scenario_status()
-    for scenario_name in status:
-        if scenario_name in PROBLEM_PATTERNS:
-            status[scenario_name]["available_patterns"] = PROBLEM_PATTERNS[scenario_name]
-            status[scenario_name]["schedule_entries"] = get_schedules(scenario_name)
-            status[scenario_name]["rpm"] = get_rpm(scenario_name)
-    return jsonify(status)
+    return jsonify(get_scenario_details())
 
 
 @app.route("/api/scenarios/<scenario_name>/start", methods=["POST"])

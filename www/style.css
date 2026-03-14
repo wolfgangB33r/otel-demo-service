@@ -30,6 +30,21 @@ h1 { color: #4dabf7; margin-bottom: 30px; }
 }
 .scenario-card:hover { border-color: #4dabf7; background: #333; }
 .scenario-card h3 { color: #4dabf7; margin-bottom: 10px; }
+.scenario-description {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: #1f232b;
+    border-left: 3px solid #4dabf7;
+    border-radius: 6px;
+}
+.scenario-description-line {
+    color: #cfd8e3;
+    font-size: 0.88em;
+    line-height: 1.45;
+}
+.scenario-description-line + .scenario-description-line {
+    margin-top: 4px;
+}
 .scenario-info { font-size: 0.9em; color: #a0a0a0; margin-bottom: 15px; }
 .status-badge {
     display: inline-block;
@@ -163,6 +178,7 @@ button {
     background: #404040;
     outline: none;
     -webkit-appearance: none;
+    appearance: none;
 }
 .rpm-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
