@@ -19,11 +19,56 @@ General OpenTelemetry ingest endpoint and authentication needs to be set as envi
 
 ## How to run
 
-Multiple options to run the OTel astroshop demo simulation service.
+Multiple options to run the OTel demo simulator service.
 
-1. Run it directly in GitHub Codespaces
-2. Deploy and run it as a Docker container in Kubernetes or any serverless runtime, e.g.: Google Cloud Run (with always on mode)
-3. Run it on your local machine for testing purposes.
+### Option 1: Local run (recommended for development)
+
+1. Create your `.env` file (see the `How to configure` section above).
+2. Install runtime dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Start the web server:
+
+```bash
+python app.py
+```
+
+4. Open the UI and log in:
+  - Login page: `http://localhost:8080/login`
+  - Dashboard: `http://localhost:8080`
+
+The server runs on port `8080` and exposes the API under `/api/*`.
+
+### Option 2: GitHub Codespaces
+
+Run the same local commands inside Codespaces (`pip install -r requirements.txt` and `python app.py`) and expose port `8080`.
+
+### Option 3: Container/serverless deployment
+
+Build and run it as a Docker container in Kubernetes or a serverless runtime (for example Google Cloud Run with always-on mode). Make sure the same environment variables are provided.
+
+### Run the tests
+
+Install test dependencies:
+
+```bash
+pip install -r requirements-test.txt
+```
+
+Run all tests:
+
+```bash
+python -m pytest tests/ -v
+```
+
+Run a single test file:
+
+```bash
+python -m pytest tests/test_scenario_manager.py -v
+```
 
 ## Features
 
