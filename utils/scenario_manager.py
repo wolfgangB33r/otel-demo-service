@@ -15,6 +15,14 @@ SCENARIO_DIR = BASE_DIR / "scenarios"
 SCENARIO_STATE_FILE = BASE_DIR / ".scenario_states.json"
 
 PROBLEM_PATTERNS = {
+    "ai-agent-application": [
+        "slow_vector_search",
+        "llm_rate_limit",
+        "tool_failures",
+        "guardrail_blocks",
+        "stale_inventory_cache",
+        "checkout_latency",
+    ],
     "single": [
         "slow_response",
         "high_latency",
@@ -38,6 +46,13 @@ PROBLEM_PATTERNS = {
 }
 
 SCENARIO_DESCRIPTIONS = {
+    "ai-agent-application": [
+        "Purpose: simulate a LangGraph and LangChain RAG agent running an autonomous shopfront.",
+        "Topology: gateway, agent API, graph runtime, retrieval, tools, and commerce backends share one trace.",
+        "Signal shape: spans include GenAI model, token, cache, tool, and guardrail observability fields.",
+        "Failure modes: vector search slowness, LLM rate limits, tool failures, cache staleness, and checkout delays.",
+        "Best for: validating AI agent observability, RAG flow analysis, and autonomous commerce operations.",
+    ],
     "single": [
         "Purpose: emit a steady stream of spans from one synthetic service.",
         "Topology: a single process creates one primary span per simulated request.",
@@ -149,6 +164,25 @@ def is_pid_running(pid: int) -> bool:
     if not pid or pid <= 0:
         return False
 
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            process_query_limited_information = 0x1000
+            still_active = 259
+            handle = ctypes.windll.kernel32.OpenProcess(process_query_limited_information, False, pid)
+            if not handle:
+                return False
+            try:
+                exit_code = ctypes.c_ulong()
+                if not ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                    return False
+                return exit_code.value == still_active
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        except Exception:
+            return False
+
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -170,7 +204,22 @@ def get_running_pid(scenario_name: str):
     return None
 
 
-def start_scenario(scenario_name: str) -> dict:
+def _read_log_excerpt(scenario_name: str, max_chars: int = 800) -> str:
+    log_file = get_log_file(scenario_name)
+    if not log_file.exists():
+        return ""
+
+    try:
+        content = log_file.read_text(encoding="utf-8", errors="replace").strip()
+    except Exception:
+        return ""
+
+    if len(content) <= max_chars:
+        return content
+    return content[-max_chars:]
+
+
+def start_scenario(scenario_name: str, startup_wait_seconds: float = 1.0) -> dict:
     scenarios = discover_scenarios()
     if scenario_name not in scenarios:
         return {"error": f"Scenario '{scenario_name}' not found"}
@@ -182,15 +231,38 @@ def start_scenario(scenario_name: str) -> dict:
     scenario_path = scenarios[scenario_name]["path"]
     log_handle = None
     try:
-        log_handle = open(get_log_file(scenario_name), "a")
+        log_handle = open(get_log_file(scenario_name), "a", buffering=1, encoding="utf-8")
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
         proc = subprocess.Popen(
-            [sys.executable, scenario_path],
+            [sys.executable, "-u", scenario_path],
             cwd=str(BASE_DIR),
             stdout=log_handle,
             stderr=subprocess.STDOUT,
             text=True,
             start_new_session=True,
+            env=env,
         )
+
+        deadline = time.monotonic() + max(0.0, startup_wait_seconds)
+        while time.monotonic() < deadline:
+            exit_code = proc.poll()
+            if exit_code is not None:
+                _remove_pid_file(scenario_name)
+                set_scenario_enabled(scenario_name, False)
+                log_handle.flush()
+                log_excerpt = _read_log_excerpt(scenario_name)
+                error_message = f"Scenario '{scenario_name}' exited during startup with code {exit_code}"
+                if log_excerpt:
+                    error_message += f". Log output:\n{log_excerpt}"
+                return {
+                    "error": error_message,
+                    "scenario": scenario_name,
+                    "exit_code": exit_code,
+                    "log_file": str(get_log_file(scenario_name)),
+                }
+            time.sleep(0.1)
+
         _write_pid(scenario_name, proc.pid)
         set_scenario_enabled(scenario_name, True)
         return {
