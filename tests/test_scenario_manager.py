@@ -176,6 +176,10 @@ class TestIsPidRunning:
         # PID 2^24-1 is astronomically unlikely to be in use
         assert sm.is_pid_running(16_777_215) is False
 
+    def test_reaped_child_process_returns_false(self, monkeypatch):
+        monkeypatch.setattr(sm, "_reap_child_process", lambda pid: True)
+        assert sm.is_pid_running(12345) is False
+
 
 # ===========================================================================
 # get_running_pid

@@ -160,6 +160,34 @@ def _remove_pid_file(scenario_name: str) -> None:
         pass
 
 
+def _reap_child_process(pid: int) -> bool:
+    if os.name == "nt":
+        return False
+
+    try:
+        reaped_pid, _ = os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        return False
+    except Exception:
+        return False
+    return reaped_pid == pid
+
+
+def _is_zombie_process(pid: int) -> bool:
+    if os.name == "nt":
+        return False
+
+    proc_stat = Path("/proc") / str(pid) / "stat"
+    if not proc_stat.exists():
+        return False
+
+    try:
+        fields = proc_stat.read_text(encoding="utf-8", errors="replace").split()
+    except Exception:
+        return False
+    return len(fields) > 2 and fields[2] == "Z"
+
+
 def is_pid_running(pid: int) -> bool:
     if not pid or pid <= 0:
         return False
@@ -183,6 +211,9 @@ def is_pid_running(pid: int) -> bool:
         except Exception:
             return False
 
+    if _reap_child_process(pid):
+        return False
+
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -191,6 +222,10 @@ def is_pid_running(pid: int) -> bool:
         return True
     except Exception:
         return False
+
+    if _is_zombie_process(pid):
+        return False
+
     return True
 
 
@@ -303,6 +338,7 @@ def stop_scenario(scenario_name: str, timeout_seconds: float = 5.0) -> dict:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         if not is_pid_running(pid):
+            _reap_child_process(pid)
             _remove_pid_file(scenario_name)
             set_scenario_enabled(scenario_name, False)
             return {"status": "stopped", "scenario": scenario_name, "pid": pid}
@@ -315,6 +351,7 @@ def stop_scenario(scenario_name: str, timeout_seconds: float = 5.0) -> dict:
     except Exception as exc:
         return {"error": str(exc), "pid": pid}
 
+    _reap_child_process(pid)
     _remove_pid_file(scenario_name)
     set_scenario_enabled(scenario_name, False)
     return {"status": "killed", "scenario": scenario_name, "pid": pid}
