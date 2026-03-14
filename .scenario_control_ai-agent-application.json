@@ -1,0 +1,1 @@
+{"schedules": [{"id": "dca5cbdf23d747fbad9ea478b7a8caec", "pattern": "slow_vector_search", "cron": "40 3 * * *", "duration_minutes": 60}]}

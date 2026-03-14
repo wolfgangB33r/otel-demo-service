@@ -70,6 +70,9 @@ LOGIN_FORM = """
 <head>
     <title>OTEL Demo Service - Login</title>
     <style>
+        :root {
+            color-scheme: light dark;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -151,6 +154,38 @@ LOGIN_FORM = """
             font-size: 12px;
             color: #808080;
             margin-top: 20px;
+        }
+        @media (prefers-color-scheme: light) {
+            body {
+                background: linear-gradient(135deg, #eef3fb 0%, #dce7f5 100%);
+                color: #1f2937;
+            }
+
+            .login-container {
+                background: #ffffff;
+                border-color: #d7e1ee;
+                box-shadow: 0 12px 30px rgba(30, 44, 72, 0.14);
+            }
+
+            h1 {
+                color: #1e6bb8;
+            }
+
+            label,
+            .info {
+                color: #4b5563;
+            }
+
+            input[type="password"] {
+                background: #ffffff;
+                color: #111827;
+                border-color: #c8d3e1;
+            }
+
+            input[type="password"]:focus {
+                border-color: #1e6bb8;
+                box-shadow: 0 0 0 3px rgba(30, 107, 184, 0.12);
+            }
         }
     </style>
 </head>

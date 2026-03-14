@@ -211,3 +211,72 @@ button {
     font-weight: bold;
     color: #4dabf7;
 }
+
+@media (prefers-color-scheme: light) {
+    body {
+        background: #f3f6fb;
+        color: #1f2937;
+    }
+
+    h1,
+    .scenario-card h3,
+    .rpm-value {
+        color: #1e6bb8;
+    }
+
+    .scenario-card {
+        background: #ffffff;
+        border-color: #d9e2ec;
+    }
+
+    .scenario-card:hover {
+        border-color: #1e6bb8;
+        background: #f8fbff;
+    }
+
+    .scenario-description {
+        background: #eef5ff;
+        border-left-color: #1e6bb8;
+    }
+
+    .scenario-description-line,
+    .scenario-info,
+    .patterns-section h4,
+    .cron-help {
+        color: #4b5563;
+    }
+
+    .patterns-section,
+    .rpm-section {
+        border-top-color: #d9e2ec;
+    }
+
+    .schedule-item,
+    .schedule-empty,
+    .schedule-form select,
+    .schedule-form input {
+        background: #ffffff;
+        color: #1f2937;
+        border-color: #c8d3e1;
+    }
+
+    .rpm-slider {
+        background: #d4dde8;
+    }
+
+    .btn-stop,
+    .btn-remove {
+        background: #e5eaf0;
+        color: #374151;
+    }
+
+    .btn-stop:hover,
+    .btn-remove:hover {
+        background: #d6dee9;
+    }
+
+    .btn-stop:disabled {
+        background: #edf1f6;
+        color: #9aa6b2;
+    }
+}
