@@ -178,7 +178,92 @@ def make_tracer_for_service(service_name, service_version="1.0.0"):
 
 For single-service scenarios, create the `Resource`, `TracerProvider`, `BatchSpanProcessor`, and `tracer` inline (see `scenarios/single.py` for reference) and still append to `_providers` / `_processors`.
 
-**Service name convention**: always prefix with `sim-` (e.g., `sim-payment-gateway-api`).
+---
+
+## Service naming — mandatory `sim-` prefix
+
+Every simulated service name **must** begin with `sim-`. This applies to:
+- The `service.name` resource attribute passed to `ResourceAttributes.SERVICE_NAME`
+- The string passed to `make_tracer_for_service()`
+- Any name derived from these (k8s deployment name, pod name, container name)
+
+Examples: `sim-payment-gateway`, `sim-iot-device-hub`, `sim-auth-service`.
+
+**Never** use a bare technology name or a real product name without the `sim-` prefix. The prefix makes it unambiguous in Dynatrace that these are synthetic traces from a demo, not production traffic.
+
+---
+
+## Realistic metric distributions
+
+All simulated values — latency, error probability, load — must follow distributions that match real-world production behaviour. Do **not** use flat `random.uniform()` for base latency or fixed error probabilities.
+
+### Latency
+
+Real service latency is right-skewed (most requests are fast; a tail is slow). Use a log-normal distribution as the default:
+
+```python
+import math
+
+def lognormal(mean_s: float, sigma: float = 0.4) -> float:
+    """Return a latency sample in seconds from a log-normal distribution."""
+    mu = math.log(mean_s) - (sigma ** 2) / 2
+    return random.lognormvariate(mu, sigma)
+```
+
+Use this helper instead of `random.uniform()` for all base latency sleeps. Choose `mean_s` to match the technology:
+
+| Technology | Typical mean | Suggested sigma |
+|---|---|---|
+| In-process / cache hit | 1–5 ms | 0.3 |
+| Redis / Memcached | 2–8 ms | 0.4 |
+| gRPC internal call | 10–50 ms | 0.5 |
+| HTTP API call | 30–150 ms | 0.6 |
+| Database query | 5–80 ms | 0.5 |
+| LLM inference | 80–400 ms | 0.7 |
+
+When a fault pattern adds extra latency, add a second `lognormal()` sample on top rather than a fixed offset:
+
+```python
+if patterns.get("slow_db"):
+    base_latency += lognormal(1.2, 0.5)   # mean ~1.2 s additional
+    span.set_attribute("pattern.slow_db", True)
+```
+
+### Error rates
+
+Use realistic base error rates (0.1–2 % under normal conditions) and elevated rates under fault patterns (10–40 %):
+
+```python
+# Normal: ~1 % background error rate
+if random.random() < 0.01:
+    span.set_attribute("error", True)
+
+# Under fault pattern: ~20 % error rate
+if patterns.get("payment_timeout") and random.random() < 0.20:
+    span.set_attribute("error", True)
+    span.set_attribute("pattern.payment_timeout", True)
+```
+
+Do not use probabilities above 0.5 for fault patterns unless the pattern is explicitly intended to be a total outage.
+
+### Load / request concurrency
+
+Simulate realistic request arrival variance by applying a small Poisson-style jitter to the inter-request sleep rather than a fixed `60.0 / rpm`:
+
+```python
+import math
+
+def next_arrival_delay(rpm: float) -> float:
+    """Exponentially distributed inter-arrival time (Poisson process)."""
+    rate_per_second = rpm / 60.0
+    return random.expovariate(rate_per_second)
+```
+
+Use `time.sleep(next_arrival_delay(get_rpm()))` in the main loop instead of the fixed formula. This produces bursty arrival patterns that look like real traffic rather than a metronome.
+
+### Attribute cardinality
+
+Vary categorical span attributes (user IDs, product names, regions, status codes) from a small, fixed pool so that cardinality stays manageable in Dynatrace while still appearing realistic. Keep pools to 5–20 distinct values.
 
 ---
 
@@ -305,8 +390,12 @@ All five lines are required. Keep each under 120 characters. Match the exact sty
 - [ ] `AVAILABLE_PATTERNS` list matches the `PROBLEM_PATTERNS` registration exactly.
 - [ ] `load_patterns()` and `get_rpm()` wrapper functions defined.
 - [ ] `_providers` and `_processors` lists declared; every provider/processor appended.
-- [ ] All service names prefixed with `sim-`.
+- [ ] All service names (SERVICE_NAME, pod, container, deployment) prefixed with `sim-`.
 - [ ] K8s-style resource attributes present on every `TracerProvider`.
+- [ ] `lognormal()` helper defined and used for all base latency sleeps — no bare `random.uniform()` for latency.
+- [ ] Base error rates are 0.1–2 %; fault-pattern rates are 10–40 %; none exceed 0.5 unless it is a total-outage pattern.
+- [ ] Main loop uses `next_arrival_delay(get_rpm())` (exponential inter-arrival) not a fixed `60.0 / get_rpm()`.
+- [ ] Categorical attributes (user IDs, regions, products) drawn from a fixed pool of 5–20 values.
 - [ ] `running`, `_shutdown`, and both `signal.signal` calls present.
 - [ ] Every `simulate_*` function accepts `parent_ctx` and passes it to child spans.
 - [ ] Pattern activation sets `span.set_attribute(f"pattern.{name}", True)`.
