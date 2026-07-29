@@ -62,6 +62,41 @@ h1 { color: #4dabf7; margin-bottom: 30px; }
     border-top: 1px solid #404040;
 }
 .patterns-section h4 { color: #a0a0a0; font-size: 0.85em; margin-bottom: 10px; }
+.pattern-list { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 4px; }
+.pattern-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+.pattern-name { flex: 1; }
+.pattern-active-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: #e67700;
+    color: #fff;
+    font-size: 0.78em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.btn-start-pattern,
+.btn-stop-pattern {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-start-pattern { background: #4dabf7; color: #1a1a1a; }
+.btn-start-pattern:hover { background: #5bc0de; }
+.btn-stop-pattern { background: #ff6b6b; color: #fff; }
+.btn-stop-pattern:hover { background: #ff5252; }
 .schedule-list { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
 .schedule-item {
     display: flex;
@@ -249,6 +284,11 @@ button {
     .patterns-section,
     .rpm-section {
         border-top-color: #d9e2ec;
+    }
+
+    .pattern-row {
+        background: #f0f5ff;
+        color: #1f2937;
     }
 
     .schedule-item,

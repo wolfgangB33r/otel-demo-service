@@ -222,6 +222,12 @@ python otel-demo-cli.py remove-schedule astroshop <schedule-id>
 python otel-demo-cli.py --format text list
 ```
 
+## Scenario creation prompt examples
+
+```
+Create a new scenario that simulates a complete FlowerShop with multiple local Point of Sales devices doing checkouts and handling local credit card payments within regional store locations. Then also add typical problem patterns such as failing payment providers for credit card invoice checkouts.
+```
+
 ## Security Notes
 
 - Passwords are hashed using Werkzeug's PBKDF2

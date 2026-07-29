@@ -31,9 +31,10 @@ from utils.scenario_manager import (
     get_scenario_status,
     get_schedules,
     restore_enabled_scenarios,
+    set_pattern_active,
+    set_rpm,
     start_scenario,
     stop_scenario,
-    set_rpm,
 )
 
 load_dotenv()
@@ -303,6 +304,26 @@ def api_set_rpm(scenario_name):
     """API endpoint to set requests per minute for a scenario."""
     data = request.get_json() or {}
     return jsonify(set_rpm(scenario_name, data.get("rpm", 10)))
+
+
+@app.route("/api/scenarios/<scenario_name>/patterns/<pattern_name>/activate", methods=["POST"])
+@require_auth
+def api_activate_pattern(scenario_name, pattern_name):
+    """API endpoint to immediately activate a problem pattern."""
+    if scenario_name not in PROBLEM_PATTERNS:
+        return jsonify({"error": f"Unknown scenario '{scenario_name}'"}), 404
+    result = set_pattern_active(scenario_name, pattern_name, True)
+    return jsonify(result), (400 if result.get("error") else 200)
+
+
+@app.route("/api/scenarios/<scenario_name>/patterns/<pattern_name>/deactivate", methods=["POST"])
+@require_auth
+def api_deactivate_pattern(scenario_name, pattern_name):
+    """API endpoint to deactivate a manually started problem pattern."""
+    if scenario_name not in PROBLEM_PATTERNS:
+        return jsonify({"error": f"Unknown scenario '{scenario_name}'"}), 404
+    result = set_pattern_active(scenario_name, pattern_name, False)
+    return jsonify(result), (400 if result.get("error") else 200)
 
 
 @app.route("/api/health", methods=["GET"])

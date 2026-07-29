@@ -59,7 +59,7 @@ tracer = trace.get_tracer(__name__)
 
 
 running = True
-CONTROL_FILE = Path(".scenario_control_single.json")
+CONTROL_FILE = ROOT_DIR / "scenario-states" / ".scenario_control_single.json"
 AVAILABLE_PATTERNS = ["slow_response", "high_latency", "error_rate", "timeout"]
 
 

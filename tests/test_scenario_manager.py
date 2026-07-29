@@ -208,17 +208,17 @@ class TestReadLogExcerpt:
         assert sm._read_log_excerpt("missing") == ""
 
     def test_reads_full_content_when_below_limit(self, patched_base):
-        (patched_base / ".scenario_x.log").write_text("hello world", encoding="utf-8")
+        (patched_base / "scenario-states" / ".scenario_x.log").write_text("hello world", encoding="utf-8")
         assert sm._read_log_excerpt("x") == "hello world"
 
     def test_truncates_to_max_chars(self, patched_base):
-        (patched_base / ".scenario_x.log").write_text("A" * 2000, encoding="utf-8")
+        (patched_base / "scenario-states" / ".scenario_x.log").write_text("A" * 2000, encoding="utf-8")
         excerpt = sm._read_log_excerpt("x", max_chars=100)
         assert len(excerpt) == 100
 
     def test_returns_trailing_section_when_truncated(self, patched_base):
         content = "START" + "B" * 900 + "END"
-        (patched_base / ".scenario_x.log").write_text(content, encoding="utf-8")
+        (patched_base / "scenario-states" / ".scenario_x.log").write_text(content, encoding="utf-8")
         excerpt = sm._read_log_excerpt("x", max_chars=50)
         assert excerpt.endswith("END")
 

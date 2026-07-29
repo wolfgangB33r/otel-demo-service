@@ -1,6 +1,7 @@
 *.log
 *.pid
-.scenario*.json
+scenario-states/*
+!scenario-states/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

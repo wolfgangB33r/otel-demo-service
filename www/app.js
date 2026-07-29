@@ -25,6 +25,7 @@ function renderScenarios(scenarios) {
         const scenarioId = toSafeId(name);
         const scheduleEntries = data.schedule_entries || [];
         const descriptionLines = data.description_lines || [];
+        const activePatterns = data.active_patterns || [];
         const patternOptions = (data.available_patterns || []).map(pattern =>
             `<option value="${escapeHtml(pattern)}">${escapeHtml(pattern)}</option>`
         ).join('');
@@ -35,6 +36,21 @@ function renderScenarios(scenarios) {
                 </div>
             `
             : '';
+
+        const patternRowsHtml = (data.available_patterns || []).map(p => {
+            const isActive = activePatterns.includes(p);
+            const badge = isActive ? '<span class="pattern-active-badge">Active</span>' : '';
+            const btn = isActive
+                ? `<button class="btn-stop-pattern" onclick="deactivatePattern('${name}', '${p}')">Stop</button>`
+                : `<button class="btn-start-pattern" onclick="activatePattern('${name}', '${p}')">Start Now</button>`;
+            return `<div class="pattern-row"><span class="pattern-name">${escapeHtml(p)}</span>${badge}${btn}</div>`;
+        }).join('');
+        const activePatternsHtml = (data.available_patterns || []).length ? `
+            <div class="patterns-section">
+                <h4>Problem Patterns</h4>
+                <div class="pattern-list">${patternRowsHtml}</div>
+            </div>
+        ` : '';
 
         const schedulesHtml = `
             <div class="patterns-section">
@@ -79,6 +95,7 @@ function renderScenarios(scenarios) {
                 <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></div>
                 ${data.pid ? `<div><strong>PID:</strong> ${data.pid}</div>` : ''}
             </div>
+            ${activePatternsHtml}
             ${schedulesHtml}
             ${rpmHtml}
             <div class="buttons">
@@ -184,6 +201,42 @@ async function addSchedule(scenarioName) {
         }
     } catch (error) {
         showMessage('Failed to add schedule: ' + error, 'error');
+    } finally {
+        setTimeout(loadScenarios, 300);
+    }
+}
+
+async function activatePattern(scenarioName, pattern) {
+    try {
+        const response = await fetch(API_BASE + '/scenarios/' + scenarioName + '/patterns/' + encodeURIComponent(pattern) + '/activate', {
+            method: 'POST'
+        });
+        const result = await response.json();
+        if (result.error) {
+            showMessage('Error: ' + result.error, 'error');
+        } else {
+            showMessage('✅ Pattern "' + pattern + '" activated', 'success');
+        }
+    } catch (error) {
+        showMessage('Failed to activate pattern: ' + error, 'error');
+    } finally {
+        setTimeout(loadScenarios, 300);
+    }
+}
+
+async function deactivatePattern(scenarioName, pattern) {
+    try {
+        const response = await fetch(API_BASE + '/scenarios/' + scenarioName + '/patterns/' + encodeURIComponent(pattern) + '/deactivate', {
+            method: 'POST'
+        });
+        const result = await response.json();
+        if (result.error) {
+            showMessage('Error: ' + result.error, 'error');
+        } else {
+            showMessage('✅ Pattern "' + pattern + '" deactivated', 'success');
+        }
+    } catch (error) {
+        showMessage('Failed to deactivate pattern: ' + error, 'error');
     } finally {
         setTimeout(loadScenarios, 300);
     }

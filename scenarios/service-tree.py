@@ -67,7 +67,7 @@ def make_exporter():
 # create tracer provider + tracer for a logical service name
 _providers = []
 _processors = []
-CONTROL_FILE = Path(".scenario_control_service-tree.json")
+CONTROL_FILE = ROOT_DIR / "scenario-states" / ".scenario_control_service-tree.json"
 AVAILABLE_PATTERNS = ["slow_db", "slow_cache", "auth_failures", "network_latency"]
 
 

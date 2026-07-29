@@ -69,7 +69,7 @@ def make_exporter():
     )
 
 
-CONTROL_FILE = Path(".scenario_control_astroshop.json")
+CONTROL_FILE = ROOT_DIR / "scenario-states" / ".scenario_control_astroshop.json"
 AVAILABLE_PATTERNS = [
     "slow_productcatalog",
     "cartservice_errors",

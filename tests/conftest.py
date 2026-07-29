@@ -26,6 +26,7 @@ import pytest
 def tmp_base(tmp_path):
     """Temporary project root with an empty scenarios directory."""
     (tmp_path / "scenarios").mkdir()
+    (tmp_path / "scenario-states").mkdir()
     return tmp_path
 
 
@@ -38,7 +39,8 @@ def patched_base(tmp_base, monkeypatch):
     import utils.scenario_manager as sm
     monkeypatch.setattr(sm, "BASE_DIR", tmp_base)
     monkeypatch.setattr(sm, "SCENARIO_DIR", tmp_base / "scenarios")
-    monkeypatch.setattr(sm, "SCENARIO_STATE_FILE", tmp_base / ".scenario_states.json")
+    monkeypatch.setattr(sm, "SCENARIO_STATES_DIR", tmp_base / "scenario-states")
+    monkeypatch.setattr(sm, "SCENARIO_STATE_FILE", tmp_base / "scenario-states" / ".scenario_states.json")
     return tmp_base
 
 

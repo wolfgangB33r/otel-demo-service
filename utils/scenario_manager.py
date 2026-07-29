@@ -12,7 +12,9 @@ from croniter import croniter
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SCENARIO_DIR = BASE_DIR / "scenarios"
-SCENARIO_STATE_FILE = BASE_DIR / ".scenario_states.json"
+SCENARIO_STATES_DIR = BASE_DIR / "scenario-states"
+SCENARIO_STATES_DIR.mkdir(exist_ok=True)
+SCENARIO_STATE_FILE = SCENARIO_STATES_DIR / ".scenario_states.json"
 
 PROBLEM_PATTERNS = {
     "ai-agent-application": [
@@ -42,6 +44,13 @@ PROBLEM_PATTERNS = {
         "high_cpu_shipping",
         "memory_leak_recommendation",
         "network_latency",
+    ],
+    "flowershop": [
+        "payment_provider_failure",
+        "pos_connectivity_loss",
+        "inventory_sync_delay",
+        "receipt_printer_jam",
+        "loyalty_service_timeout",
     ],
 }
 
@@ -74,19 +83,26 @@ SCENARIO_DESCRIPTIONS = {
         "Failure modes: catalog slowdowns, cart errors, payment timeouts, leaks, and latency.",
         "Best for: exercising complex distributed-tracing workflows at realistic service scale.",
     ],
+    "flowershop": [
+        "Purpose: simulate a regional FlowerShop chain with local POS devices and credit card payments.",
+        "Topology: POS terminals per store call store-controller, inventory, payment-gateway, and receipt services.",
+        "Signal shape: spans carry store region, device ID, card provider, transaction ID, and payment outcome.",
+        "Failure modes: payment provider outages (Visa/Mastercard), POS network loss, inventory delays, printer jams.",
+        "Best for: testing retail point-of-sale observability, payment failure root-cause analysis, and multi-location tracing.",
+    ],
 }
 
 
 def get_control_file(scenario_name: str) -> Path:
-    return BASE_DIR / f".scenario_control_{scenario_name}.json"
+    return SCENARIO_STATES_DIR / f".scenario_control_{scenario_name}.json"
 
 
 def get_pid_file(scenario_name: str) -> Path:
-    return BASE_DIR / f".scenario_{scenario_name}.pid"
+    return SCENARIO_STATES_DIR / f".scenario_{scenario_name}.pid"
 
 
 def get_log_file(scenario_name: str) -> Path:
-    return BASE_DIR / f".scenario_{scenario_name}.log"
+    return SCENARIO_STATES_DIR / f".scenario_{scenario_name}.log"
 
 
 def discover_scenarios() -> dict:
@@ -485,6 +501,28 @@ def get_rpm(scenario_name: str) -> int:
         return 10
 
 
+def set_pattern_active(scenario_name: str, pattern_name: str, active: bool) -> dict:
+    available = PROBLEM_PATTERNS.get(scenario_name, [])
+    if pattern_name not in available:
+        return {"error": f"Pattern '{pattern_name}' is not available for scenario '{scenario_name}'"}
+
+    control_data = load_control_data(scenario_name)
+    if active:
+        control_data[pattern_name] = True
+    else:
+        control_data.pop(pattern_name, None)
+
+    if save_control_data(scenario_name, control_data):
+        return {"status": "ok", "pattern": pattern_name, "active": active}
+    return {"error": "Failed to save pattern state"}
+
+
+def get_active_manual_patterns(scenario_name: str) -> list[str]:
+    control_data = load_control_data(scenario_name)
+    available = PROBLEM_PATTERNS.get(scenario_name, [])
+    return [p for p in available if bool(control_data.get(p, False))]
+
+
 def get_scenario_status() -> dict:
     scenarios = discover_scenarios()
     for name, data in scenarios.items():
@@ -504,6 +542,7 @@ def get_scenario_details() -> dict:
             status[scenario_name]["available_patterns"] = PROBLEM_PATTERNS[scenario_name]
             status[scenario_name]["schedule_entries"] = get_schedules(scenario_name)
             status[scenario_name]["rpm"] = get_rpm(scenario_name)
+            status[scenario_name]["active_patterns"] = get_active_manual_patterns(scenario_name)
     return status
 
 

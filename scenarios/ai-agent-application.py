@@ -51,7 +51,7 @@ if not DT_OTEL_ENDPOINT or not DT_OTEL_API_KEY:
     sys.exit(1)
 
 
-CONTROL_FILE = Path(".scenario_control_ai-agent-application.json")
+CONTROL_FILE = ROOT_DIR / "scenario-states" / ".scenario_control_ai-agent-application.json"
 AVAILABLE_PATTERNS = [
     "slow_vector_search",
     "llm_rate_limit",
