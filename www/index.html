@@ -6,16 +6,24 @@
 </head>
 <body>
     <div class="container">
-            <div class="header">
-                <h1>🌟 OTEL Demo Service Control</h1>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </div>
-        
-        <div id="statusMessage" class="status-message"></div>
-        
-        <div class="scenarios-grid" id="scenariosContainer">
-            <!-- Populated by JavaScript -->
+        <div class="header">
+            <h1>OTEL Demo Service Control</h1>
+            <a href="/logout" class="btn-logout">Logout</a>
         </div>
+
+        <div id="statusBar" class="status-bar"></div>
+        <div id="statusMessage" class="status-message"></div>
+
+        <section class="scenarios-section">
+            <h2 id="runningSectionHeader">Running (0)</h2>
+            <div id="runningEmpty" class="section-empty">No scenarios are currently running.</div>
+            <div id="runningContainer" class="scenarios-list"></div>
+        </section>
+
+        <section class="scenarios-section">
+            <h2 id="availableSectionHeader">Available</h2>
+            <div id="availableContainer" class="scenarios-list"></div>
+        </section>
     </div>
 
     <script src="/www/app.js"></script>
